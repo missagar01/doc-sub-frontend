@@ -4,7 +4,7 @@ import useAuthStore from '../store/authStore';
 import useHeaderStore from '../store/headerStore';
 import { toast } from 'react-hot-toast';
 
-const API_BASE_URL = 'http://localhost:5050/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050/api';
 
 // Backend user interface
 interface BackendUser {
