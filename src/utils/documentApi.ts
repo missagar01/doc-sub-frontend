@@ -96,7 +96,8 @@ export async function createMultipleDocuments(documents: Array<{
 
 // Get all documents
 export async function fetchAllDocuments(): Promise<BackendDocument[]> {
-    const res = await fetch(`${API_BASE_URL}/documents/`);
+    const res = await fetch(`${API_BASE_URL}/documents`);
+
 
     if (!res.ok) {
         throw new Error('Failed to fetch documents');
