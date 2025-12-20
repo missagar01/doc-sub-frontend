@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import useAuthStore from "../store/authStore";
 import toast from "react-hot-toast";
 
@@ -9,19 +9,33 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const loggedInUser = login(username, password);
-    if (loggedInUser) {
-      // Navigate to root, which will redirect based on role
-      navigate("/", { replace: true });
-    } else {
-      toast.error("Invalid credentials");
+    if (!username || !password) {
+      toast.error("Please enter username and password");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const success = await login(username, password);
+      if (success) {
+        toast.success("Login successful!");
+        navigate("/", { replace: true });
+      } else {
+        toast.error("Invalid credentials");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      toast.error("Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -46,7 +60,7 @@ const Login = () => {
           </div>
 
           {/* Form section */}
-          <div className="mt-4 space-y-2">
+          <form onSubmit={handleSubmit} className="mt-4 space-y-2">
             {/* Username field */}
             <div className="relative">
               <label className="block text-sm font-semibold text-gray-700 mb-1 text-center">
@@ -55,11 +69,10 @@ const Login = () => {
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <User
-                    className={`h-5 w-5 transition-all duration-200 ${
-                      focusedField === "username"
+                    className={`h-5 w-5 transition-all duration-200 ${focusedField === "username"
                         ? "text-indigo-600"
                         : "text-gray-400"
-                    }`}
+                      }`}
                   />
                 </div>
                 <input
@@ -69,7 +82,8 @@ const Login = () => {
                   onChange={(e) => setUsername(e.target.value)}
                   onFocus={() => setFocusedField("username")}
                   onBlur={() => setFocusedField(null)}
-                  className="block w-full pl-12 pr-4 py-3 shadow-input border-none rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 hover:border-gray-300"
+                  disabled={isLoading}
+                  className="block w-full pl-12 pr-4 py-3 shadow-input border-none rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 hover:border-gray-300 disabled:opacity-50"
                   placeholder="Enter your username"
                 />
               </div>
@@ -83,11 +97,10 @@ const Login = () => {
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Lock
-                    className={`h-5 w-5 transition-all duration-200 ${
-                      focusedField === "password"
+                    className={`h-5 w-5 transition-all duration-200 ${focusedField === "password"
                         ? "text-indigo-600"
                         : "text-gray-400"
-                    }`}
+                      }`}
                   />
                 </div>
                 <input
@@ -97,13 +110,15 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   onFocus={() => setFocusedField("password")}
                   onBlur={() => setFocusedField(null)}
-                  className="block w-full pl-12 pr-12 py-3 shadow-input border-none rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 hover:border-gray-300"
+                  disabled={isLoading}
+                  className="block w-full pl-12 pr-12 py-3 shadow-input border-none rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 hover:border-gray-300 disabled:opacity-50"
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                  disabled={isLoading}
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5 text-gray-400 hover:text-indigo-600 transition-colors duration-200" />
@@ -117,51 +132,31 @@ const Login = () => {
             {/* Submit button */}
             <div className="">
               <button
-                onClick={handleSubmit}
-                className="w-full flex justify-center py-3 px-4 border border-transparent text-base font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                type="submit"
+                disabled={isLoading}
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-base font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                Sign in
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign in"
+                )}
               </button>
             </div>
-
-            {/* Demo credentials */}
-            <div className="mt-2 p-4 bg-gray-50 rounded-xl shadow-input border-none">
-              <p className="text-sm font-bold text-gray-800 mb-2 text-center">
-                Demo Credentials
-              </p>
-              <div className="space-y-1 text-sm">
-                <div
-                  className="flex items-center justify-between bg-white rounded-lg px-4 py-2.5 shadow-sm cursor-pointer hover:bg-gray-100"
-                  onClick={() => {
-                    setUsername("admin");
-                    setPassword("admin123");
-                  }}
-                >
-                  <span className="font-semibold text-gray-700">Admin:</span>
-                  <span className="text-gray-600">admin / admin123</span>
-                </div>
-                <div
-                  className="flex items-center justify-between bg-white rounded-lg px-4 py-2.5 shadow-sm cursor-pointer hover:bg-gray-100"
-                  onClick={() => {
-                    setUsername("user");
-                    setPassword("user123");
-                  }}
-                >
-                  <span className="font-semibold text-gray-700">User:</span>
-                  <span className="text-gray-600">user / user123</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          </form>
         </div>
+
 
         {/* Footer - Matching your Layout footer */}
         <div className="text-center">
           <p className="text-sm text-gray-600">
             Powered by{' '}
-            <a 
-              href="https://www.botivate.com" 
-              target="_blank" 
+            <a
+              href="https://www.botivate.com"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors duration-200"
             >

@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
-import useDataStore, { DocumentItem } from '../../store/dataStore';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { X, Save, Plus, Upload, Trash2 } from 'lucide-react';
 import SearchableInput from '../../components/SearchableInput';
+import { createMultipleDocuments } from '../../utils/documentApi';
+import { fetchDocumentTypes, fetchCategories } from '../../utils/masterApi';
 
 interface DocumentEntry {
     id: string;
@@ -23,30 +24,46 @@ interface AddDocumentProps {
 }
 
 const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
-    const { addDocuments, masterData, addMasterData } = useDataStore();
+    const [typeOptions, setTypeOptions] = useState<string[]>([]);
+    const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
 
     const defaultCategories = ['Personal', 'Company', 'Director'];
 
+    // Fetch document types and categories from master table
+    useEffect(() => {
+        const loadOptions = async () => {
+            try {
+                const [types, categories] = await Promise.all([
+                    fetchDocumentTypes(),
+                    fetchCategories()
+                ]);
+                setTypeOptions(types.filter((t: string) => t)); // Remove empty strings
+                // Merge backend categories with defaults
+                const allCategories = Array.from(new Set([...categories.filter((c: string) => c), ...defaultCategories]));
+                setCategoryOptions(allCategories);
+            } catch (err) {
+                console.error('Failed to load options:', err);
+                setCategoryOptions(defaultCategories);
+            }
+        };
+        if (isOpen) {
+            loadOptions();
+        }
+    }, [isOpen]);
+
     const [entries, setEntries] = useState<DocumentEntry[]>([
-        { 
-            id: Math.random().toString(), 
-            documentName: '', 
-            documentType: '', 
-            category: '', 
-            companyName: '', 
-            needsRenewal: false, 
-            renewalDate: '', 
-            file: null, 
-            fileName: '' 
+        {
+            id: Math.random().toString(),
+            documentName: '',
+            documentType: '',
+            category: '',
+            companyName: '',
+            needsRenewal: false,
+            renewalDate: '',
+            file: null,
+            fileName: ''
         }
     ]);
-
-    const typeOptions = useMemo(() => Array.from(new Set(masterData?.map(m => m.documentType) || [])), [masterData]);
-    const categoryOptions = useMemo(() => {
-        const existing = masterData?.map(m => m.category) || [];
-        return Array.from(new Set([...existing, ...defaultCategories]));
-    }, [masterData]);
-    // nameOptions removed as we switched to Input for Name per requirement interpretation
 
     if (!isOpen) return null;
 
@@ -57,16 +74,16 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
     const handleFileChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-             const reader = new FileReader();
-             reader.onloadend = () => {
-                 setEntries(prev => prev.map(item => item.id === id ? { 
-                     ...item, 
-                     file: file, 
-                     fileName: file.name, 
-                     fileContent: reader.result as string 
-                 } : item));
-             };
-             reader.readAsDataURL(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setEntries(prev => prev.map(item => item.id === id ? {
+                    ...item,
+                    file: file,
+                    fileName: file.name,
+                    fileContent: reader.result as string
+                } : item));
+            };
+            reader.readAsDataURL(file);
         }
     };
 
@@ -77,16 +94,16 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
         }
         setEntries(prev => [
             ...prev,
-            { 
-                id: Math.random().toString(), 
-                documentName: '', 
-                documentType: '', 
-                category: '', 
-                companyName: '', 
-                needsRenewal: false, 
-                renewalDate: '', 
-                file: null, 
-                fileName: '' 
+            {
+                id: Math.random().toString(),
+                documentName: '',
+                documentType: '',
+                category: '',
+                companyName: '',
+                needsRenewal: false,
+                renewalDate: '',
+                file: null,
+                fileName: ''
             }
         ]);
     };
@@ -107,9 +124,9 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
         return 'Name';
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         for (const entry of entries) {
             if (!entry.documentName || !entry.documentType || !entry.category || !entry.companyName) {
                 toast.error("Please fill all required fields.");
@@ -121,57 +138,56 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
             }
         }
 
-        const newDocuments: DocumentItem[] = [];
+        try {
+            // Map entries to backend format
+            const documentsToCreate = entries.map(entry => {
+                // Also update master data locally (optional but keeps consistency)
+                const exists = masterData?.some(m =>
+                    m.companyName.toLowerCase() === entry.companyName.toLowerCase() &&
+                    m.documentType.toLowerCase() === entry.documentType.toLowerCase() &&
+                    m.category.toLowerCase() === entry.category.toLowerCase()
+                );
 
-        entries.forEach(entry => {
-            const exists = masterData?.some(m => 
-                m.companyName.toLowerCase() === entry.companyName.toLowerCase() &&
-                m.documentType.toLowerCase() === entry.documentType.toLowerCase() &&
-                m.category.toLowerCase() === entry.category.toLowerCase()
-            );
+                if (!exists) {
+                    addMasterData({
+                        id: Math.random().toString(36).substr(2, 9),
+                        companyName: entry.companyName,
+                        documentType: entry.documentType,
+                        category: entry.category
+                    });
+                }
 
-            if (!exists) {
-                addMasterData({
-                    id: Math.random().toString(36).substr(2, 9),
-                    companyName: entry.companyName,
-                    documentType: entry.documentType,
-                    category: entry.category
-                });
-            }
-
-            const randomSN = 'SN-' + Math.floor(100 + Math.random() * 900);
-            
-            newDocuments.push({
-                id: Math.random().toString(36).substr(2, 9),
-                sn: randomSN,
-                documentName: entry.documentName,
-                companyName: entry.companyName,
-                documentType: entry.documentType,
-                category: entry.category,
-                needsRenewal: entry.needsRenewal,
-                renewalDate: entry.needsRenewal ? entry.renewalDate : undefined,
-                file: entry.fileName || null,
-                fileContent: entry.fileContent,
-                date: new Date().toISOString().split('T')[0],
-                status: 'Active'
+                return {
+                    document_name: entry.documentName,
+                    document_type: entry.documentType,
+                    category: entry.category,
+                    person_name: entry.companyName,
+                    company_department: entry.category === 'Company' ? entry.companyName : undefined,
+                    need_renewal: entry.needsRenewal ? 'yes' as const : 'no' as const,
+                    renewal_date: entry.needsRenewal ? entry.renewalDate : undefined,
+                    image: entry.fileContent || undefined
+                };
             });
-        });
 
-        addDocuments(newDocuments);
-        toast.success(`${newDocuments.length} Document(s) added successfully`);
-        onClose();
-        
-        setEntries([{ 
-            id: Math.random().toString(), 
-            documentName: '', 
-            documentType: '', 
-            category: '', 
-            companyName: '', 
-            needsRenewal: false, 
-            renewalDate: '', 
-            file: null, 
-            fileName: '' 
-        }]);
+            await createMultipleDocuments(documentsToCreate);
+            toast.success(`${documentsToCreate.length} Document(s) added successfully`);
+            onClose();
+
+            setEntries([{
+                id: Math.random().toString(),
+                documentName: '',
+                documentType: '',
+                category: '',
+                companyName: '',
+                needsRenewal: false,
+                renewalDate: '',
+                file: null,
+                fileName: ''
+            }]);
+        } catch (err) {
+            console.error('Failed to create documents:', err);
+            toast.error('Failed to create documents');
+        }
     };
 
     return (
@@ -204,65 +220,65 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
 
                                 {/* Compact Grid: Gaps reduced */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    
+
                                     {/* 1. Document Name (Input) */}
                                     <div>
-                                         <label className="block text-xs font-semibold text-gray-600 mb-1">Document Name <span className="text-red-500">*</span></label>
-                                         <input
-                                             type="text"
-                                             required
-                                             className="w-full p-2 text-xs shadow-input border-none rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none font-medium bg-gray-50/50 focus:bg-white transition-colors"
-                                             value={entry.documentName}
-                                             onChange={e => handleChange(entry.id, 'documentName', e.target.value)}
-                                             placeholder="e.g. Agreement"
-                                         />
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Document Name <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            required
+                                            className="w-full p-2 text-xs shadow-input border-none rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none font-medium bg-gray-50/50 focus:bg-white transition-colors"
+                                            value={entry.documentName}
+                                            onChange={e => handleChange(entry.id, 'documentName', e.target.value)}
+                                            placeholder="e.g. Agreement"
+                                        />
                                     </div>
 
                                     {/* 2. Document Type (Searchable) */}
                                     <div>
-                                         {/* Note: SearchableInput styles are internal, but we can wrap it or accept it's slightly larger. 
+                                        {/* Note: SearchableInput styles are internal, but we can wrap it or accept it's slightly larger. 
                                              For compacting, we might just use it as is but careful with layout. 
                                              Ideally, SearchableInput should support size prop. 
                                              For now, we leave it as 'proper' update focused on layout gaps. */}
-                                         <SearchableInput compact
-                                             label="Document Type"
-                                             value={entry.documentType}
-                                             onChange={val => handleChange(entry.id, 'documentType', val)}
-                                             options={typeOptions}
-                                             placeholder="Select Type..."
-                                             required
-                                         />
+                                        <SearchableInput compact
+                                            label="Document Type"
+                                            value={entry.documentType}
+                                            onChange={val => handleChange(entry.id, 'documentType', val)}
+                                            options={typeOptions}
+                                            placeholder="Select Type..."
+                                            required
+                                        />
                                     </div>
 
                                     {/* 3. Category (Searchable) */}
                                     <div>
-                                         <SearchableInput compact
-                                             label="Category"
-                                             value={entry.category}
-                                             onChange={val => handleChange(entry.id, 'category', val)}
-                                             options={categoryOptions}
-                                             placeholder="Select Category..."
-                                             required
-                                         />
+                                        <SearchableInput compact
+                                            label="Category"
+                                            value={entry.category}
+                                            onChange={val => handleChange(entry.id, 'category', val)}
+                                            options={categoryOptions}
+                                            placeholder="Select Category..."
+                                            required
+                                        />
                                     </div>
 
                                     {/* 4. Name (Input - as changed from Searchable per 'Input' requirement) */}
                                     <div>
-                                         <label className="block text-xs font-semibold text-gray-600 mb-1">{getNameLabel(entry.category)} <span className="text-red-500">*</span></label>
-                                         <input
-                                             type="text"
-                                             required
-                                             className="w-full p-2 text-xs shadow-input border-none rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none font-medium bg-gray-50/50 focus:bg-white transition-colors"
-                                             value={entry.companyName}
-                                             onChange={e => handleChange(entry.id, 'companyName', e.target.value)}
-                                             placeholder={`Enter ${getNameLabel(entry.category)}...`}
-                                         />
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">{getNameLabel(entry.category)} <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            required
+                                            className="w-full p-2 text-xs shadow-input border-none rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none font-medium bg-gray-50/50 focus:bg-white transition-colors"
+                                            value={entry.companyName}
+                                            onChange={e => handleChange(entry.id, 'companyName', e.target.value)}
+                                            placeholder={`Enter ${getNameLabel(entry.category)}...`}
+                                        />
                                     </div>
-                                    
+
                                     {/* 5. Needs Renewal & Date */}
                                     <div className="flex items-center gap-3 bg-gray-50/50 p-2 rounded-lg border border-gray-100">
                                         <label className="flex items-center gap-2 cursor-pointer select-none">
-                                            <input 
+                                            <input
                                                 type="checkbox"
                                                 className="w-3.5 h-3.5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                                                 checked={entry.needsRenewal}
@@ -270,7 +286,7 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
                                             />
                                             <span className="text-xs font-medium text-gray-700">Need Renewal</span>
                                         </label>
-                                        
+
                                         {entry.needsRenewal && (
                                             <div className="flex-1">
                                                 <input
@@ -283,26 +299,26 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
                                             </div>
                                         )}
                                     </div>
-                                    
-                                     {/* 6. File Upload */}
-                                     <div>
-                                         <div className="relative">
-                                             <label className="block text-xs font-semibold text-gray-600 mb-1">Upload File</label>
-                                             <input
-                                                 type="file"
-                                                 id={`file-${entry.id}`}
-                                                 className="hidden"
-                                                 onChange={e => handleFileChange(entry.id, e)}
-                                             />
-                                             <label 
-                                                 htmlFor={`file-${entry.id}`}
-                                                 className="flex items-center justify-center gap-2 w-full p-2 border border-dashed border-gray-300 rounded-lg text-gray-600 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all bg-white"
-                                             >
-                                                 <Upload size={14} />
-                                                 <span className="text-xs font-medium truncate max-w-[180px]">{entry.fileName || "Choose File"}</span>
-                                             </label>
-                                         </div>
-                                     </div>
+
+                                    {/* 6. File Upload */}
+                                    <div>
+                                        <div className="relative">
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1">Upload File</label>
+                                            <input
+                                                type="file"
+                                                id={`file-${entry.id}`}
+                                                className="hidden"
+                                                onChange={e => handleFileChange(entry.id, e)}
+                                            />
+                                            <label
+                                                htmlFor={`file-${entry.id}`}
+                                                className="flex items-center justify-center gap-2 w-full p-2 border border-dashed border-gray-300 rounded-lg text-gray-600 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all bg-white"
+                                            >
+                                                <Upload size={14} />
+                                                <span className="text-xs font-medium truncate max-w-[180px]">{entry.fileName || "Choose File"}</span>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         ))}

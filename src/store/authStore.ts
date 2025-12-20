@@ -1,90 +1,94 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+const API_BASE_URL = 'http://localhost:5050/api';
+
 export interface User {
-  id: string; // username
-  password?: string; // in a real app, hash this!
-  role: 'admin' | 'user';
-  permissions: string[]; // e.g., ['Dashboard', 'Document', 'Loan']
+  id: string;
+  username: string;
+  name: string;
+  role: 'admin' | 'user' | 'employee';
+  email?: string;
+  department?: string;
+  permissions: string[];
+  systemAccess?: string[];
+  pageAccess?: string[];
 }
 
 interface AuthState {
   isAuthenticated: boolean;
   currentUser: User | null;
-  users: User[]; // List of all users
-  login: (username: string, password: string) => boolean;
+  token: string | null;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  addUser: (user: User) => boolean;
-  updateUser: (id: string, updatedUser: Partial<User>) => void;
-  deleteUser: (id: string) => void;
 }
-
-const DEFAULT_USERS: User[] = [
-  {
-    id: 'admin',
-    password: 'admin123',
-    role: 'admin',
-    permissions: ['Dashboard', 'Document', 'Subscription', 'Loan', 'Calendar', 'Master', 'Settings']
-  },
-  {
-    id: 'user',
-    password: 'user123',
-    role: 'user',
-    permissions: ['Dashboard', 'Document', 'Calendar']
-  }
-];
 
 const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       isAuthenticated: false,
       currentUser: null,
-      users: DEFAULT_USERS,
+      token: null,
 
-      login: (username: string, password: string) => {
-        const { users } = get();
-        const foundUser = users.find(u => u.id === username && u.password === password);
+      login: async (username: string, password: string) => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
 
-        if (foundUser) {
-          set({ isAuthenticated: true, currentUser: foundUser });
+          if (!res.ok) {
+            return false;
+          }
+
+          const data = await res.json();
+
+          // Map systemAccess from backend to permissions for frontend compatibility
+          const permissions = data.user.systemAccess?.map((s: string) =>
+            s.charAt(0).toUpperCase() + s.slice(1)
+          ) || ['Dashboard', 'Document', 'Subscription'];
+
+          // Add common pages if user has access
+          if (data.user.role === 'admin') {
+            permissions.push('Master', 'Settings', 'Loan', 'Calendar');
+          }
+
+          const user: User = {
+            id: String(data.user.id),
+            username: data.user.username,
+            name: data.user.name,
+            role: data.user.role === 'admin' ? 'admin' : 'user',
+            email: data.user.email,
+            department: data.user.department,
+            permissions: Array.from(new Set<string>(permissions)),
+            systemAccess: data.user.systemAccess,
+            pageAccess: data.user.pageAccess,
+          };
+
+          set({
+            isAuthenticated: true,
+            currentUser: user,
+            token: data.token
+          });
+
           return true;
+        } catch (err) {
+          console.error('Login error:', err);
+          return false;
         }
-        return false;
       },
 
       logout: () => {
-        set({ isAuthenticated: false, currentUser: null });
+        set({ isAuthenticated: false, currentUser: null, token: null });
       },
-
-      addUser: (newUser: User) => {
-        const { users } = get();
-        if (users.some(u => u.id === newUser.id)) {
-          return false; // User already exists
-        }
-        set({ users: [...users, newUser] });
-        return true;
-      },
-
-      updateUser: (id: string, updatedUser: Partial<User>) => {
-        set((state) => ({
-          users: state.users.map(u => u.id === id ? { ...u, ...updatedUser } : u),
-          // If updating the currently logged in user, update that too
-          currentUser: state.currentUser?.id === id ? { ...state.currentUser, ...updatedUser } : state.currentUser
-        }));
-      },
-
-      deleteUser: (id: string) => {
-        set((state) => ({
-          users: state.users.filter(u => u.id !== id)
-        }));
-      }
     }),
     {
       name: 'auth-storage',
       partialize: (state) => ({
-        users: state.users,
         isAuthenticated: state.isAuthenticated,
-        currentUser: state.currentUser
+        currentUser: state.currentUser,
+        token: state.token
       }),
     }
   )

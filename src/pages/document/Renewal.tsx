@@ -1,20 +1,60 @@
-import { useState, useEffect } from 'react';
-import useDataStore, { DocumentItem, RenewalItem } from '../../store/dataStore';
+import { useState, useEffect, useCallback } from 'react';
+import useDataStore, { RenewalItem } from '../../store/dataStore';
 import useHeaderStore from '../../store/headerStore';
-import { Search, FileText, X, Check, Clock, AlertTriangle, Calendar, ExternalLink, Upload, Download, RotateCcw } from 'lucide-react';
+import { Search, FileText, X, Check, Clock, AlertTriangle, Calendar, ExternalLink, Upload, Download, RotateCcw, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
+import { fetchDocumentsNeedingRenewal, mapBackendToFrontend, BackendDocument } from '../../utils/documentApi';
+
+// Frontend Document interface for this page
+interface DocumentItem {
+    id: string;
+    sn: string;
+    documentName: string;
+    companyName: string;
+    documentType: string;
+    category: string;
+    needsRenewal: boolean;
+    renewalDate?: string;
+    file: string | null;
+    fileContent?: string;
+    date: string;
+    status: string;
+}
 
 const DocumentRenewal = () => {
     const { setTitle } = useHeaderStore();
-    const { documents, updateDocument, renewalHistory, addRenewalHistory } = useDataStore();
+    const { renewalHistory, addRenewalHistory } = useDataStore();
+
+    // State for documents from backend
+    const [documents, setDocuments] = useState<DocumentItem[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         setTitle('Document Renewal');
     }, [setTitle]);
+
+    // Fetch documents needing renewal from backend
+    const loadRenewalDocuments = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await fetchDocumentsNeedingRenewal();
+            setDocuments(data.map((doc: BackendDocument) => mapBackendToFrontend(doc)));
+        } catch (err) {
+            console.error('Failed to load renewal documents:', err);
+            toast.error('Failed to load renewal documents');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadRenewalDocuments();
+    }, [loadRenewalDocuments]);
+
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [searchTerm, setSearchTerm] = useState('');
-    
+
     // Modal State
     const [isRenewalModalOpen, setIsRenewalModalOpen] = useState(false);
     const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
@@ -25,24 +65,14 @@ const DocumentRenewal = () => {
     const [newFileName, setNewFileName] = useState('');
     const [newFileContent, setNewFileContent] = useState<string>('');
 
-    // Filter Pending Documents: needsRenewal is true AND date is approaching (e.g. within 30 days) or past
-    const pendingDocuments = documents.filter(doc => {
-        if (!doc.needsRenewal) return false;
-        if (!doc.renewalDate) return true; 
-        // Using string comparison for YYYY-MM-DD or simple date logic
-        // But doc.renewalDate format varies. Assuming YYYY-MM-DD for consistency or logic in Step 609 was approximate?
-        // Step 609 logic:
-        const renDate = new Date(doc.renewalDate);
-        const threshold = new Date();
-        threshold.setDate(threshold.getDate() + 15);
-            return renDate <= threshold;
-    }).filter(doc => 
+    // Filter Pending Documents by search term
+    const pendingDocuments = documents.filter(doc =>
         doc.documentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         doc.sn.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const filteredHistory = renewalHistory.filter(item => 
+    const filteredHistory = renewalHistory.filter(item =>
         item.documentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.sn.toLowerCase().includes(searchTerm.toLowerCase())
@@ -51,7 +81,7 @@ const DocumentRenewal = () => {
     const handleOpenRenewal = (doc: DocumentItem) => {
         setSelectedDoc(doc);
         setAgainRenewal(true);
-        setNextRenewalDate(''); 
+        setNextRenewalDate('');
         setNewFileName('');
         setNewFileContent('');
         setIsRenewalModalOpen(true);
@@ -73,12 +103,20 @@ const DocumentRenewal = () => {
             reader.readAsDataURL(file);
         }
     };
-    
+
     const handleDownload = (fileContent: string | undefined, fileName: string | null) => {
         if (!fileContent) {
-            alert("File content not available for download (demo data).");
+            alert("File content not available for download.");
             return;
         }
+
+        // If it's an S3 URL (starts with http), open in new tab
+        if (fileContent.startsWith('http://') || fileContent.startsWith('https://')) {
+            window.open(fileContent, '_blank');
+            return;
+        }
+
+        // For base64 data, download as file
         const link = document.createElement('a');
         link.href = fileContent;
         link.download = fileName || 'document';
@@ -87,7 +125,7 @@ const DocumentRenewal = () => {
         document.body.removeChild(link);
     };
 
-    const handleSaveRenewal = (e: React.FormEvent) => {
+    const handleSaveRenewal = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedDoc) return;
 
@@ -96,44 +134,54 @@ const DocumentRenewal = () => {
             return;
         }
 
-        // 1. Create History Record
-        const historyItem: RenewalItem = {
-            id: Math.random().toString(36).substr(2, 9),
-            documentId: selectedDoc.id,
-            sn: selectedDoc.sn,
-            documentName: selectedDoc.documentName,
-            documentType: selectedDoc.documentType,
-            category: selectedDoc.category,
-            companyName: selectedDoc.companyName,
-            entryDate: selectedDoc.date, // Original Entry Date
-            oldRenewalDate: selectedDoc.renewalDate || '-',
-            oldFile: selectedDoc.file,
-            oldFileContent: selectedDoc.fileContent,
-            renewalStatus: againRenewal ? 'Yes' : 'No',
-            nextRenewalDate: againRenewal ? nextRenewalDate : null,
-            newFile: newFileName || null,
-            newFileContent: newFileContent || undefined
-        };
+        try {
+            // Import updateDocument from documentApi
+            const { updateDocument } = await import('../../utils/documentApi');
 
-        addRenewalHistory(historyItem);
+            // 1. Create History Record (local for now)
+            const historyItem: RenewalItem = {
+                id: Math.random().toString(36).substr(2, 9),
+                documentId: selectedDoc.id,
+                sn: selectedDoc.sn,
+                documentName: selectedDoc.documentName,
+                documentType: selectedDoc.documentType,
+                category: selectedDoc.category,
+                companyName: selectedDoc.companyName,
+                entryDate: selectedDoc.date, // Original Entry Date
+                oldRenewalDate: selectedDoc.renewalDate || '-',
+                oldFile: selectedDoc.file,
+                oldFileContent: selectedDoc.fileContent,
+                renewalStatus: againRenewal ? 'Yes' : 'No',
+                nextRenewalDate: againRenewal ? nextRenewalDate : null,
+                newFile: newFileName || null,
+                newFileContent: newFileContent || undefined
+            };
 
-        // 2. Update Document
-        const updates: Partial<DocumentItem> = {};
-        if (againRenewal) {
-            updates.renewalDate = nextRenewalDate;
-            if (newFileName) {
-                updates.file = newFileName;
-                updates.fileContent = newFileContent;
+            addRenewalHistory(historyItem);
+
+            // 2. Update Document in backend
+            const updates: { need_renewal?: 'yes' | 'no'; renewal_date?: string; image?: string } = {};
+            if (againRenewal) {
+                updates.renewal_date = nextRenewalDate;
+                if (newFileContent) {
+                    updates.image = newFileContent;
+                }
+            } else {
+                updates.need_renewal = 'no';
+                updates.renewal_date = undefined;
             }
-        } else {
-            updates.needsRenewal = false;
-            updates.renewalDate = undefined;
+
+            await updateDocument(parseInt(selectedDoc.id), updates);
+
+            // 3. Reload data
+            loadRenewalDocuments();
+
+            toast.success("Renewal processed successfully");
+            handleCloseRenewal();
+        } catch (err) {
+            console.error('Failed to process renewal:', err);
+            toast.error("Failed to process renewal");
         }
-
-        updateDocument(selectedDoc.id, updates);
-
-        toast.success("Renewal processed successfully");
-        handleCloseRenewal();
     };
 
     return (
@@ -162,21 +210,19 @@ const DocumentRenewal = () => {
                     <div className="flex bg-gray-100 p-1 rounded-lg w-full sm:w-auto">
                         <button
                             onClick={() => setActiveTab('pending')}
-                            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                                activeTab === 'pending'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'pending'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
                         >
                             Pending
                         </button>
                         <button
                             onClick={() => setActiveTab('history')}
-                            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                                activeTab === 'history'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'history'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
                         >
                             History
                         </button>
@@ -207,7 +253,7 @@ const DocumentRenewal = () => {
                                 {pendingDocuments.length > 0 ? pendingDocuments.map((doc) => (
                                     <tr key={doc.id} className="hover:bg-gray-50/80 transition-colors">
                                         <td className="p-3 text-center">
-                                            <button 
+                                            <button
                                                 onClick={() => handleOpenRenewal(doc)}
                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
                                             >
@@ -232,7 +278,7 @@ const DocumentRenewal = () => {
                                         </td>
                                         <td className="p-3">
                                             {doc.file ? (
-                                                <div 
+                                                <div
                                                     onClick={() => handleDownload(doc.fileContent, doc.file)}
                                                     className="flex items-center gap-2 text-indigo-600 text-xs cursor-pointer hover:underline"
                                                 >
@@ -295,15 +341,15 @@ const DocumentRenewal = () => {
                                             {formatDate(item.oldRenewalDate)}
                                         </td>
                                         <td className="p-3 text-gray-500">
-                                             {item.oldFile ? (
-                                                 <div 
+                                            {item.oldFile ? (
+                                                <div
                                                     onClick={() => handleDownload(item.oldFileContent, item.oldFile)}
                                                     className="flex items-center gap-1 text-gray-600 text-xs cursor-pointer hover:text-indigo-600 hover:underline"
-                                                 >
+                                                >
                                                     <Download size={12} />
                                                     <span className="truncate max-w-[100px]">View</span>
-                                                 </div>
-                                             ) : '-'}
+                                                </div>
+                                            ) : '-'}
                                         </td>
                                         <td className="p-3 text-center">
                                             {item.renewalStatus === 'Yes' ? (
@@ -321,7 +367,7 @@ const DocumentRenewal = () => {
                                         </td>
                                         <td className="p-3">
                                             {item.newFile ? (
-                                                <span 
+                                                <span
                                                     onClick={() => handleDownload(item.newFileContent, item.newFile)}
                                                     className="text-indigo-600 font-medium flex items-center gap-1 cursor-pointer hover:underline text-xs"
                                                 >
@@ -373,7 +419,7 @@ const DocumentRenewal = () => {
 
                             <div className="pt-3 flex items-center justify-between gap-3">
                                 {doc.file ? (
-                                    <button 
+                                    <button
                                         onClick={() => handleDownload(doc.fileContent, doc.file)}
                                         className="flex items-center gap-1.5 text-indigo-600 text-xs font-medium bg-indigo-50 px-2 py-1.5 rounded-lg"
                                     >
@@ -383,7 +429,7 @@ const DocumentRenewal = () => {
                                 ) : (
                                     <span className="text-gray-400 text-xs italic">No file</span>
                                 )}
-                                <button 
+                                <button
                                     onClick={() => handleOpenRenewal(doc)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg shadow-sm"
                                 >
@@ -399,7 +445,7 @@ const DocumentRenewal = () => {
                     )
                 ) : (
                     filteredHistory.length > 0 ? filteredHistory.map((item) => (
-                         <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
+                        <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <span className="text-xs font-mono font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded">{item.sn}</span>
@@ -435,7 +481,7 @@ const DocumentRenewal = () => {
                             <div className="pt-3 flex items-center justify-between gap-3 border-t border-gray-50 mt-1">
                                 <div className="flex gap-3">
                                     {item.oldFile && (
-                                        <button 
+                                        <button
                                             onClick={() => handleDownload(item.oldFileContent, item.oldFile)}
                                             className="flex items-center gap-1 text-gray-500 text-xs hover:text-indigo-600"
                                         >
@@ -444,7 +490,7 @@ const DocumentRenewal = () => {
                                         </button>
                                     )}
                                     {item.newFile && (
-                                        <button 
+                                        <button
                                             onClick={() => handleDownload(item.newFileContent, item.newFile)}
                                             className="flex items-center gap-1 text-indigo-600 text-xs font-medium"
                                         >
@@ -454,10 +500,10 @@ const DocumentRenewal = () => {
                                     )}
                                 </div>
                             </div>
-                         </div>
+                        </div>
                     )) : (
                         <div className="bg-white p-8 rounded-xl text-center text-gray-500">
-                             <p>No renewal history available</p>
+                            <p>No renewal history available</p>
                         </div>
                     )
                 )}
@@ -476,7 +522,7 @@ const DocumentRenewal = () => {
                                 <X size={18} />
                             </button>
                         </div>
-                        
+
                         <form onSubmit={handleSaveRenewal} className="p-4 space-y-4">
                             {/* Pre-filled Info Grid */}
                             <div className="grid grid-cols-2 gap-3 text-xs bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
@@ -501,8 +547,8 @@ const DocumentRenewal = () => {
                                     <div className="text-amber-600 font-medium">{selectedDoc.renewalDate || 'N/A'}</div>
                                 </div>
                                 <div className="col-span-2">
-                                     <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Current File</label>
-                                     <div className="text-gray-600 truncate">{selectedDoc.file || 'No file attached'}</div>
+                                    <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Current File</label>
+                                    <div className="text-gray-600 truncate">{selectedDoc.file || 'No file attached'}</div>
                                 </div>
                             </div>
 
@@ -521,8 +567,8 @@ const DocumentRenewal = () => {
                                             <label className="block text-xs font-semibold text-gray-700 mb-1">Next Renewal Date</label>
                                             <div className="relative">
                                                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                                                <input 
-                                                    type="date" 
+                                                <input
+                                                    type="date"
                                                     required
                                                     className="w-full pl-9 p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                                     value={nextRenewalDate}
@@ -540,7 +586,7 @@ const DocumentRenewal = () => {
                                                     className="hidden"
                                                     onChange={handleFileChange}
                                                 />
-                                                <label 
+                                                <label
                                                     htmlFor="renewal-file"
                                                     className="flex items-center justify-center gap-2 w-full p-2.5 border border-dashed border-gray-300 rounded-xl text-gray-600 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all"
                                                 >
