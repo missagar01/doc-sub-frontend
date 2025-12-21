@@ -49,7 +49,7 @@ const Login = () => {
             <div className="flex justify-center mb-4">
               <div className="relative">
                 <div className="h-40 w-40 flex items-center justify-center transform transition-all duration-300 hover:scale-105">
-                  <img src="/Logo.jpeg" alt="Logo" className="h-full w-full object-cover rounded-full shadow-md" />
+                  <img src="/sagar.png" alt="Logo" className="h-full w-full object-cover rounded-full shadow-md" />
                 </div>
               </div>
             </div>
@@ -70,8 +70,8 @@ const Login = () => {
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <User
                     className={`h-5 w-5 transition-all duration-200 ${focusedField === "username"
-                        ? "text-indigo-600"
-                        : "text-gray-400"
+                      ? "text-indigo-600"
+                      : "text-gray-400"
                       }`}
                   />
                 </div>
@@ -98,8 +98,8 @@ const Login = () => {
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Lock
                     className={`h-5 w-5 transition-all duration-200 ${focusedField === "password"
-                        ? "text-indigo-600"
-                        : "text-gray-400"
+                      ? "text-indigo-600"
+                      : "text-gray-400"
                       }`}
                   />
                 </div>
