@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050/api';
 
@@ -85,11 +85,7 @@ const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({
-        isAuthenticated: state.isAuthenticated,
-        currentUser: state.currentUser,
-        token: state.token
-      }),
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );
