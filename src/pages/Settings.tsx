@@ -56,7 +56,7 @@ const Settings = () => {
         pageAccess: []
     });
 
-    const availableSystems = ['subscription', 'document', 'loan'];
+    const availableSystems = ['subscription', 'document', 'loan', 'payment'];
 
     // Define which pages belong to which system
     const systemPagesMap: Record<string, string[]> = {
@@ -76,6 +76,12 @@ const Settings = () => {
             'Loan/All',
             'Loan/Foreclosure',
             'Loan/NOC'
+        ],
+        'payment': [
+            'Payment/Request Form',
+            'Payment/Approval',
+            'Payment/Make Payment',
+            'Payment/Tally Entry'
         ]
     };
 

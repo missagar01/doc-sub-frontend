@@ -17,7 +17,10 @@ import {
   ChevronRight,
   Database,
   Settings as SettingsIcon,
-  CreditCard
+  CreditCard,
+  Wallet,
+  ClipboardList,
+  Receipt
 } from "lucide-react";
 import useAuthStore from "../store/authStore";
 
@@ -128,7 +131,27 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
       label: "Settings",
       path: "/settings",
       icon: <SettingsIcon size={20} />,
-    }
+    },
+    {
+      label: "Payment",
+      icon: <Wallet size={20} />,
+      subItems: [
+        { label: "Request Form", path: "/payment/request-form", icon: <ClipboardList size={16} /> },
+        { label: "Approval", path: "/payment/approval", icon: <CheckCircle size={16} /> },
+        { label: "Make Payment", path: "/payment/make-payment", icon: <DollarSign size={16} /> },
+        { label: "Tally Entry", path: "/payment/tally-entry", icon: <Receipt size={16} /> },
+      ]
+    },
+    // {
+    //   label: "Account FMS",
+    //   icon: <Banknote size={20} />,
+    //   subItems: [
+    //     { label: "Tally Data", path: "/account/tally-data", icon: <List size={16} /> },
+    //     { label: "Audit", path: "/account/audit", icon: <CheckCircle size={16} /> },
+    //     { label: "Rectify", path: "/account/rectify", icon: <RefreshCw size={16} /> },
+    //     { label: "Bill Filed", path: "/account/bill-filed", icon: <FileText size={16} /> },
+    //   ]
+    // }
   ];
 
   // Check if user has access to a page based on pageAccess
