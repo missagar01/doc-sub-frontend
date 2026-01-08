@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import useAuthStore from '../../store/authStore';
 import useHeaderStore from '../../store/headerStore';
 import { RotateCcw, X, Check, Save, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -35,6 +36,7 @@ interface RenewalHistoryDisplay {
 
 const SubscriptionRenewal = () => {
     const { setTitle } = useHeaderStore();
+    const { currentUser } = useAuthStore();
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [searchTerm, setSearchTerm] = useState('');
     const [pendingList, setPendingList] = useState<PendingRenewalDisplay[]>([]);
@@ -61,6 +63,8 @@ const SubscriptionRenewal = () => {
             ]);
 
             // Map pending renewals
+            // Map pending renewals
+
             setPendingList(pending.map((item: PendingRenewalItem) => ({
                 id: String(item.id),
                 sn: item.subscription_no,
@@ -70,7 +74,25 @@ const SubscriptionRenewal = () => {
                 price: item.price || '',
                 frequency: item.frequency || '',
                 endDate: item.end_date || ''
-            })));
+            }))
+                .filter((item: any) => {
+                    // Check if planned_1 exists and is valid based on 7-day logic
+                    const originalItem = pending.find((p: PendingRenewalItem) => String(p.id) === item.id);
+
+                    if (!originalItem?.planned_1) {
+
+                        return false;
+                    }
+
+                    const plannedDate = new Date(originalItem.planned_1);
+                    const cutoffDate = new Date();
+                    cutoffDate.setDate(cutoffDate.getDate() + 7);
+
+                    const isValid = plannedDate <= cutoffDate;
+
+
+                    return isValid;
+                }));
 
             // Map history
             setHistoryList(history.map((item: RenewalHistoryItem) => ({
@@ -80,7 +102,8 @@ const SubscriptionRenewal = () => {
                 renewalStatus: item.renewal_status,
                 approvedBy: item.approved_by || '',
                 price: item.price || '',
-                createdAt: item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB') : ''
+                createdAt: item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB') : '',
+                subscriberName: (item as any).subscriber_name || ''
             })));
 
         } catch (err) {
@@ -95,21 +118,35 @@ const SubscriptionRenewal = () => {
         loadData();
     }, [loadData]);
 
-    // Filter by search
-    const filteredPending = useMemo(() =>
-        pendingList.filter(sub =>
+    // Filter by search AND Role
+    const filteredPending = useMemo(() => {
+        let data = pendingList;
+
+        // Role Filter
+        if (currentUser?.role !== 'admin') {
+            data = data.filter(item => item.subscriberName === currentUser?.name);
+        }
+
+        return data.filter(sub =>
             sub.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             sub.subscriptionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             sub.sn.toLowerCase().includes(searchTerm.toLowerCase())
-        ),
-        [pendingList, searchTerm]);
+        );
+    }, [pendingList, searchTerm, currentUser]);
 
-    const filteredHistory = useMemo(() =>
-        historyList.filter(item =>
+    const filteredHistory = useMemo(() => {
+        let data = historyList;
+
+        // Role Filter
+        if (currentUser?.role !== 'admin') {
+            data = data.filter(item => (item as any).subscriberName === currentUser?.name);
+        }
+
+        return data.filter(item =>
             item.subscriptionNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.renewalNo.toLowerCase().includes(searchTerm.toLowerCase())
-        ),
-        [historyList, searchTerm]);
+        );
+    }, [historyList, searchTerm, currentUser]);
 
     const handleAction = (sub: PendingRenewalDisplay) => {
         setSelectedSub(sub);
@@ -187,8 +224,8 @@ const SubscriptionRenewal = () => {
                         <button
                             onClick={() => setActiveTab('pending')}
                             className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'pending'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             Pending
@@ -196,8 +233,8 @@ const SubscriptionRenewal = () => {
                         <button
                             onClick={() => setActiveTab('history')}
                             className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'history'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             History

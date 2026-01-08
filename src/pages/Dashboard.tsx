@@ -12,6 +12,7 @@ import {
     Clock,
     TrendingUp
 } from 'lucide-react';
+import useAuthStore from '../store/authStore';
 import useHeaderStore from '../store/headerStore';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -55,6 +56,7 @@ interface DashboardSubscription {
 interface DashboardDocument {
     id: string;
     documentName: string;
+    companyName: string;
     category: string;
     needsRenewal: boolean;
     renewalDate?: string;
@@ -92,6 +94,7 @@ const StatCard = ({ title, value, icon: Icon, color, subtext, onClick, bgColor =
 
 const Dashboard = () => {
     const { setTitle } = useHeaderStore();
+    const { currentUser } = useAuthStore();
     const navigate = useNavigate();
     const [selectedStat, setSelectedStat] = useState<{ type: string, title: string, data: { label: string, count: number }[], link: string } | null>(null);
     const [activeTab, setActiveTab] = useState<'overview' | 'payment' | 'account'>('overview');
@@ -126,7 +129,14 @@ const Dashboard = () => {
         setLoadingSubscriptions(true);
         try {
             const data = await fetchAllSubscriptions();
-            setSubscriptions(data.map((item: SubscriptionResponse) => ({
+            let filteredData = data;
+
+            // Filter by Role
+            if (currentUser?.role !== 'admin') {
+                filteredData = data.filter(item => item.subscriber_name === currentUser?.name);
+            }
+
+            setSubscriptions(filteredData.map((item: SubscriptionResponse) => ({
                 id: String(item.id),
                 sn: item.subscription_no,
                 companyName: item.company_name || '',
@@ -151,9 +161,20 @@ const Dashboard = () => {
     const loadDocuments = useCallback(async () => {
         try {
             const data = await fetchAllDocuments();
-            setDocuments(data.map((doc: BackendDocument) => ({
+            let filteredData = data;
+
+            // Filter by Role
+            if (currentUser?.role !== 'admin') {
+                filteredData = data.filter((doc: BackendDocument) =>
+                    (doc.person_name === currentUser?.name) ||
+                    (doc.company_department === currentUser?.name)
+                );
+            }
+
+            setDocuments(filteredData.map((doc: BackendDocument) => ({
                 id: String(doc.document_id),
                 documentName: doc.document_name,
+                companyName: doc.person_name || doc.company_department || '',
                 category: doc.category || 'Uncategorized',
                 needsRenewal: doc.need_renewal === 'yes',
                 renewalDate: doc.renewal_date?.split('T')[0] || undefined,
@@ -259,7 +280,7 @@ const Dashboard = () => {
         loadDocuments();
         loadLoans();
         loadPaymentData();
-    }, [loadSubscriptions, loadDocuments, loadLoans, loadPaymentData]);
+    }, [loadSubscriptions, loadDocuments, loadLoans, loadPaymentData, currentUser]);
 
 
     // --- Metrics Calculation ---

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import useDataStore, { RenewalItem } from '../../store/dataStore';
+import useAuthStore from '../../store/authStore';
 import useHeaderStore from '../../store/headerStore';
 import { Search, FileText, X, Check, Clock, AlertTriangle, Calendar, ExternalLink, Upload, Download, RotateCcw, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -24,6 +25,7 @@ interface DocumentItem {
 
 const DocumentRenewal = () => {
     const { setTitle } = useHeaderStore();
+    const { currentUser } = useAuthStore();
     const { renewalHistory, addRenewalHistory } = useDataStore();
 
     // State for documents from backend
@@ -65,18 +67,32 @@ const DocumentRenewal = () => {
     const [newFileName, setNewFileName] = useState('');
     const [newFileContent, setNewFileContent] = useState<string>('');
 
-    // Filter Pending Documents by search term
-    const pendingDocuments = documents.filter(doc =>
-        doc.documentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.sn.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Filter Pending Documents by search term and Role
+    const pendingDocuments = documents.filter(doc => {
+        // Role check
+        if (currentUser?.role !== 'admin' && doc.companyName !== currentUser?.name) {
+            return false;
+        }
+        // Search check
+        return (
+            doc.documentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            doc.sn.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    });
 
-    const filteredHistory = renewalHistory.filter(item =>
-        item.documentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.sn.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredHistory = renewalHistory.filter(item => {
+        // Role check
+        if (currentUser?.role !== 'admin' && item.companyName !== currentUser?.name) {
+            return false;
+        }
+        // Search check
+        return (
+            item.documentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.sn.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    });
 
     const handleOpenRenewal = (doc: DocumentItem) => {
         setSelectedDoc(doc);

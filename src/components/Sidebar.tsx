@@ -185,9 +185,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
       });
       if (hasMatch) return true;
 
-      // Check for parent system access (e.g., "Subscription" grants all subscription pages)
-      const parentSystem = pathParts[0]?.charAt(0).toUpperCase() + pathParts[0]?.slice(1);
-      if (permissions.includes(parentSystem)) return true;
+      // FIXED: Only use parent system access if pageAccess array is empty or undefined
+      // This prevents system access from overriding specific page-level permissions
+      if (pageAccess.length === 0) {
+        const parentSystem = pathParts[0]?.charAt(0).toUpperCase() + pathParts[0]?.slice(1);
+        if (permissions.includes(parentSystem)) return true;
+      }
     }
 
     // Convert label to check against pageAccess format
@@ -199,7 +202,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
     }
 
     // Check old-style permissions for backwards compatibility
-    if (permissions.includes(label)) return true;
+    // But only if pageAccess is not being used
+    if (pageAccess.length === 0 && permissions.includes(label)) return true;
 
     // For parent menu items with children, check if ANY child has access
     // This is handled by filterMenuItems, so return false here

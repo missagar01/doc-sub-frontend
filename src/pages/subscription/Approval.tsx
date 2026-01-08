@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import useAuthStore from '../../store/authStore';
 import useHeaderStore from '../../store/headerStore';
 import { CheckCircle, FileText, X, Save, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -33,10 +34,12 @@ interface HistoryDisplay {
     approvedBy: string;
     requestedOn: string;
     approvalDate: string;
+    subscriberName: string;
 }
 
 const SubscriptionApproval = () => {
     const { setTitle } = useHeaderStore();
+    const { currentUser } = useAuthStore();
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [pendingList, setPendingList] = useState<PendingDisplay[]>([]);
     const [historyList, setHistoryList] = useState<HistoryDisplay[]>([]);
@@ -85,7 +88,8 @@ const SubscriptionApproval = () => {
                 note: item.note || '',
                 approvedBy: item.approved_by || '',
                 requestedOn: item.requested_on || '',
-                approvalDate: item.requested_on ? new Date(item.requested_on).toLocaleDateString('en-GB') : ''
+                approvalDate: item.requested_on ? new Date(item.requested_on).toLocaleDateString('en-GB') : '',
+                subscriberName: (item as any).subscriber_name || ''
             })));
 
         } catch (err) {
@@ -100,21 +104,35 @@ const SubscriptionApproval = () => {
         loadData();
     }, [loadData]);
 
-    // Filter by search
-    const filteredPending = useMemo(() =>
-        pendingList.filter(s =>
+    // Filter by search AND Role
+    const filteredPending = useMemo(() => {
+        let data = pendingList;
+
+        // Role Filter
+        if (currentUser?.role !== 'admin') {
+            data = data.filter(s => s.subscriberName === currentUser?.name);
+        }
+
+        return data.filter(s =>
             s.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.subscriptionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.sn.toLowerCase().includes(searchTerm.toLowerCase())
-        ),
-        [pendingList, searchTerm]);
+        );
+    }, [pendingList, searchTerm, currentUser]);
 
-    const filteredHistory = useMemo(() =>
-        historyList.filter(s =>
+    const filteredHistory = useMemo(() => {
+        let data = historyList;
+
+        // Role Filter
+        if (currentUser?.role !== 'admin') {
+            data = data.filter(s => s.subscriberName === currentUser?.name);
+        }
+
+        return data.filter(s =>
             s.subscriptionNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.approvedBy.toLowerCase().includes(searchTerm.toLowerCase())
-        ),
-        [historyList, searchTerm]);
+        );
+    }, [historyList, searchTerm, currentUser]);
 
     const handleActionClick = (sub: PendingDisplay) => {
         setSelectedSub(sub);

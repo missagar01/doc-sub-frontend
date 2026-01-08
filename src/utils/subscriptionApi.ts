@@ -1,7 +1,7 @@
 // Subscription API Service Layer
 // Connects frontend to backend subscription APIs
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 // ==================== SUBSCRIPTION APIs ====================
 
@@ -127,6 +127,7 @@ export interface PendingPaymentItem {
     frequency: string;
     purpose: string;
     planned_3: string;
+    planned_1: string | null;
 }
 
 export interface PaymentHistoryItem {
@@ -147,6 +148,7 @@ export interface PaymentPayload {
     startDate: string;
     endDate: string;
     insuranceDocument?: string;
+    planned_1?: string;
 }
 
 export async function fetchPendingPayments(): Promise<PendingPaymentItem[]> {
@@ -182,6 +184,7 @@ export interface PendingRenewalItem {
     price: string;
     frequency: string;
     end_date: string;
+    planned_1: string | null;
 }
 
 export interface RenewalHistoryItem {

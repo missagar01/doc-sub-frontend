@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import useAuthStore from '../../store/authStore';
 import useHeaderStore from '../../store/headerStore';
 import { CreditCard, FileText, X, Save, Upload, Download, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -36,6 +37,7 @@ interface PaymentHistoryDisplay {
 
 const SubscriptionPayment = () => {
     const { setTitle } = useHeaderStore();
+    const { currentUser } = useAuthStore();
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [searchTerm, setSearchTerm] = useState('');
     const [pendingList, setPendingList] = useState<PendingPaymentDisplay[]>([]);
@@ -86,7 +88,8 @@ const SubscriptionPayment = () => {
                 transactionId: item.transaction_id || '',
                 startDate: item.start_date || '',
                 insuranceDocument: item.insurance_document,
-                createdAt: item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB') : ''
+                createdAt: item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB') : '',
+                subscriberName: (item as any).subscriber_name || ''
             })));
 
         } catch (err) {
@@ -127,20 +130,35 @@ const SubscriptionPayment = () => {
     }, [startDate, selectedSub]);
 
     // Filters
-    const filteredPending = useMemo(() =>
-        pendingList.filter(s =>
+    const filteredPending = useMemo(() => {
+        let data = pendingList;
+
+        // Role Filter: If not admin, show only own data
+        if (currentUser?.role !== 'admin') {
+            data = data.filter(item => item.subscriberName === currentUser?.name);
+        }
+
+        return data.filter(s =>
             s.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.subscriptionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.sn.toLowerCase().includes(searchTerm.toLowerCase())
-        ),
-        [pendingList, searchTerm]);
+        );
+    }, [pendingList, searchTerm, currentUser]);
 
-    const filteredHistory = useMemo(() =>
-        historyList.filter(s =>
+    const filteredHistory = useMemo(() => {
+        let data = historyList;
+
+        // Role Filter
+        if (currentUser?.role !== 'admin') {
+            data = data.filter(item => (item as any).subscriberName === currentUser?.name);
+        }
+
+        return data.filter(s =>
             s.subscriptionNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.transactionId.toLowerCase().includes(searchTerm.toLowerCase())
-        ),
-        [historyList, searchTerm]);
+        );
+    }, [historyList, searchTerm, currentUser]);
+
 
     const handlePayClick = (sub: PendingPaymentDisplay) => {
         setSelectedSub(sub);
@@ -184,6 +202,7 @@ const SubscriptionPayment = () => {
                 price: selectedSub.price,
                 startDate: startDate,
                 endDate: endDate,
+                planned_1: endDate,
                 insuranceDocument: fileContent || undefined
             });
 
@@ -244,8 +263,8 @@ const SubscriptionPayment = () => {
                         <button
                             onClick={() => setActiveTab('pending')}
                             className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'pending'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             Pending
@@ -253,8 +272,8 @@ const SubscriptionPayment = () => {
                         <button
                             onClick={() => setActiveTab('history')}
                             className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'history'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             History

@@ -8,7 +8,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ children }) => {
-  const { user } = useAuthStore();
+  const { currentUser } = useAuthStore();
   const { title } = useHeaderStore();
 
   return (
@@ -16,17 +16,17 @@ const Header: React.FC<HeaderProps> = ({ children }) => {
       <div className="flex justify-between items-center px-4 py-3 sm:px-6">
         <div className="flex items-center gap-4">
           {children}
-          
-           {/* Mobile Title / Dynamic Title */}
-           <div>
-              <h1 className="text-xl font-bold text-gray-800">
-                {title || (
-                  <>
-                    Document & Subscription <span className="text-orange-400">Manager</span>
-                  </>
-                )}
-              </h1>
-           </div>
+
+          {/* Mobile Title / Dynamic Title */}
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">
+              {title || (
+                <>
+                  Document & Subscription <span className="text-orange-400">Manager</span>
+                </>
+              )}
+            </h1>
+          </div>
         </div>
         <div className="flex items-center space-x-4">
           <button className="relative p-2 rounded-full hover:bg-gray-100 transition-colors">
@@ -38,12 +38,12 @@ const Header: React.FC<HeaderProps> = ({ children }) => {
           </button>
           <div className="flex items-center space-x-3 pl-4 border-l border-gray-100">
             <div className="hidden md:block text-right">
-              <p className="text-sm font-semibold text-gray-700">{user?.id || "Guest"}</p>
+              <p className="text-sm font-semibold text-gray-700">{currentUser?.name || "Guest"}</p>
               <p className="text-xs text-gray-500 capitalize">
-                {user?.role || "User"}
+                {currentUser?.role || "User"}
               </p>
             </div>
-             <div className="flex justify-center items-center w-10 h-10 bg-indigo-50 border border-indigo-100 rounded-full shadow-sm">
+            <div className="flex justify-center items-center w-10 h-10 bg-indigo-50 border border-indigo-100 rounded-full shadow-sm">
               <User size={20} className="text-indigo-600" />
             </div>
           </div>
