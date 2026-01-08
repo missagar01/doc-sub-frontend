@@ -176,8 +176,8 @@ const SubscriptionRenewal = () => {
             });
 
             toast.success(renewalAction === 'Approved'
-                ? 'Subscription Renewal Approved!'
-                : 'Subscription Renewal Rejected');
+                ? 'Subscription Renewed!'
+                : 'Subscription Not Renewed');
             handleCloseModal();
             loadData(); // Refresh data
         } catch (err) {
@@ -506,7 +506,12 @@ const SubscriptionRenewal = () => {
                                 </div>
                                 <div>
                                     <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-0.5">Price</label>
-                                    <div className="text-gray-900 font-bold">{selectedSub.price}</div>
+                                    <input
+                                        type="text"
+                                        value={selectedSub.price}
+                                        onChange={(e) => setSelectedSub({ ...selectedSub, price: e.target.value })}
+                                        className="w-full bg-white border border-gray-200 text-gray-900 font-bold text-sm rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                    />
                                 </div>
                                 <div className="col-span-2 pt-2 border-t border-gray-200 mt-2">
                                     <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-0.5">Current End Date</label>
@@ -524,8 +529,8 @@ const SubscriptionRenewal = () => {
                                         className="w-full appearance-none bg-white border border-gray-200 text-gray-700 text-sm rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                                     >
                                         <option value="" disabled>Select Action</option>
-                                        <option value="Approved">Approve</option>
-                                        <option value="Rejected">Reject</option>
+                                        <option value="Approved">Renew</option>
+                                        <option value="Rejected">Not Renew</option>
                                     </select>
                                     <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
                                         <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
