@@ -171,42 +171,62 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
     // Convert path to pageAccess format (e.g., "/subscription/approval" -> "Subscription/Approval")
     if (path) {
       const pathParts = path.split('/').filter(p => p);
-      const pageKey = pathParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('/');
+      
+      // Try standard CamelCase conversion matches
+      // e.g. "/payment/request-form" -> "Payment/Request-Form" or "Payment/Request Form"
+      const system = pathParts[0]?.charAt(0).toUpperCase() + pathParts[0]?.slice(1);
+      
+      // Check system level permission fallback if no specific page access is defined
+      if (pageAccess.length === 0 && permissions.includes(system)) return true;
 
-      // Direct pageKey match
-      if (pageAccess.includes(pageKey)) return true;
-
-      // Check if any pageAccess entry matches this path pattern
-      // e.g., "Subscription/Approval" should match "/subscription/approval"
-      const normalizedPath = path.toLowerCase();
+      // Check for path match against page access entries
+      // normalize path: remove leading slash, lowercase
+      const normalizedPath = path.toLowerCase().replace(/^\//, ''); 
+      
       const hasMatch = pageAccess.some(access => {
-        const accessPath = '/' + access.toLowerCase().replace(/\//g, '/');
-        return normalizedPath === accessPath || normalizedPath.startsWith(accessPath);
-      });
-      if (hasMatch) return true;
+        // Normalize access entry: lowercase
+        const normalizedAccess = access.toLowerCase();
+        
+        // Direct match check: "payment/request form" vs "payment/request-form"
+        // We replace spaces with hyphens in access implementation for comparison, or vice versa
+        // Let's normalize both to ensure match
+        const accessAsPath = normalizedAccess.replace(/\s+/g, '-').replace(/\//g, '/');
+        const pathAsAccess = normalizedPath.replace(/-/g, ' ');
 
-      // FIXED: Only use parent system access if pageAccess array is empty or undefined
-      // This prevents system access from overriding specific page-level permissions
-      if (pageAccess.length === 0) {
-        const parentSystem = pathParts[0]?.charAt(0).toUpperCase() + pathParts[0]?.slice(1);
-        if (permissions.includes(parentSystem)) return true;
-      }
+        // Check if path matches access entry (ignoring spaces/hyphens difference)
+        if (normalizedPath === accessAsPath || 
+            pathAsAccess === normalizedAccess) { // Handle "request-form" vs "Request Form"
+          return true;
+        }
+
+        // Also check "System/Page" format specific construction
+        if (pathParts.length >= 2) {
+             const accessParts = normalizedAccess.split('/');
+             if (accessParts.length >= 2) {
+                 return accessParts[0] === pathParts[0] && 
+                        (accessParts[1] === pathParts[1] || accessParts[1] === pathParts[1].replace(/-/g, ' '));
+             }
+        }
+        
+        return false;
+      });
+      
+      if (hasMatch) return true;
     }
 
     // Convert label to check against pageAccess format
-    // e.g., "Subscription Approval" -> check if "Subscription/Approval" exists
-    const labelParts = label.split(' ');
-    if (labelParts.length === 2) {
-      const labelAsPath = labelParts.join('/');
-      if (pageAccess.includes(labelAsPath)) return true;
+    if (!path && label) {
+         // This is likely a parent menu item. 
+         // We don't need extensive checks here because filterMenuItems handles parents 
+         // by checking if any child is visible.
+         // But we can check if there's a direct permission with this label just in case.
+         if (pageAccess.some(access => access.includes(label))) return true;
     }
 
     // Check old-style permissions for backwards compatibility
-    // But only if pageAccess is not being used
+    // But only if pageAccess is not being used or is empty
     if (pageAccess.length === 0 && permissions.includes(label)) return true;
-
-    // For parent menu items with children, check if ANY child has access
-    // This is handled by filterMenuItems, so return false here
+    
     return false;
   };
 
