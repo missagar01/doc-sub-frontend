@@ -523,15 +523,18 @@ const SubscriptionPayment = () => {
                                     <span className="font-medium text-indigo-600">{selectedSub.subscriptionName}</span>
                                 </div>
                                 <div>
-                                    <span className="block text-xs text-gray-500 uppercase font-semibold">Price (Freq)</span>
-                                    <div className="flex items-center gap-2">
+                                    <span className="block text-xs text-gray-500 uppercase font-semibold">Price </span>
+                                    <div className="flex items-center gap-3">
                                         <input
                                             type="text"
                                             className="w-full p-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                                             value={price}
                                             onChange={(e) => setPrice(e.target.value)}
                                         />
-                                        <span className="text-gray-500 font-normal text-sm whitespace-nowrap">({selectedSub.frequency})</span>
+                                        <div className="flex items-baseline gap-1 whitespace-nowrap">
+                                            <span className="text-xs text-gray-500 uppercase font-semibold">Freq</span>
+                                            <span className="text-sm text-gray-700">{selectedSub.frequency}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
