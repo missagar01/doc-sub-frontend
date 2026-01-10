@@ -54,6 +54,7 @@ const SubscriptionPayment = () => {
     const [endDate, setEndDate] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('Credit Card');
     const [transactionId, setTransactionId] = useState('');
+    const [price, setPrice] = useState('');
     const [fileName, setFileName] = useState('');
     const [fileContent, setFileContent] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,6 +167,7 @@ const SubscriptionPayment = () => {
         setEndDate('');
         setPaymentMethod('Credit Card');
         setTransactionId('');
+        setPrice(sub.price || '');
         setFileName('');
         setFileContent('');
     };
@@ -199,7 +201,7 @@ const SubscriptionPayment = () => {
                 subscriptionNo: selectedSub.sn,
                 paymentMethod: paymentMethod,
                 transactionId: transactionId || `TXN-${Date.now()}`,
-                price: selectedSub.price,
+                price: price,
                 startDate: startDate,
                 endDate: endDate,
                 planned_1: endDate,
@@ -522,7 +524,15 @@ const SubscriptionPayment = () => {
                                 </div>
                                 <div>
                                     <span className="block text-xs text-gray-500 uppercase font-semibold">Price (Freq)</span>
-                                    <span className="font-medium text-gray-900">{selectedSub.price} <span className="text-gray-500 font-normal">({selectedSub.frequency})</span></span>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            className="w-full p-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            value={price}
+                                            onChange={(e) => setPrice(e.target.value)}
+                                        />
+                                        <span className="text-gray-500 font-normal text-sm whitespace-nowrap">({selectedSub.frequency})</span>
+                                    </div>
                                 </div>
                             </div>
 
