@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import useAuthStore from '../../store/authStore';
 import useHeaderStore from '../../store/headerStore';
-import { CreditCard, FileText, X, Save, Upload, Download, Search, RefreshCw } from 'lucide-react';
+import { CreditCard, FileText, X, Save, Upload, Download, Search, RefreshCw, Edit2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
 import {
@@ -48,15 +48,22 @@ const SubscriptionPayment = () => {
         setTitle('Subscription Payment');
     }, [setTitle]);
 
-    // Modal State
-    const [selectedSub, setSelectedSub] = useState<PendingPaymentDisplay | null>(null);
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('Credit Card');
-    const [transactionId, setTransactionId] = useState('');
-    const [price, setPrice] = useState('');
-    const [fileName, setFileName] = useState('');
-    const [fileContent, setFileContent] = useState<string>('');
+    // Inline Editing State
+    const [editingSubId, setEditingSubId] = useState<string | null>(null);
+    const [editFormData, setEditFormData] = useState({
+        companyName: '',
+        subscriberName: '',
+        subscriptionName: '',
+        price: '',
+        frequency: '',
+        startDate: '',
+        endDate: '',
+        paymentMethod: 'Credit Card',
+        transactionId: '',
+        reason: '',
+        fileName: '',
+        fileContent: ''
+    });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Load data from backend
@@ -107,10 +114,10 @@ const SubscriptionPayment = () => {
 
     // Auto-fill End Date based on Frequency
     useEffect(() => {
-        if (startDate && selectedSub && selectedSub.frequency) {
-            const start = new Date(startDate);
+        if (editFormData.startDate && editingSubId && editFormData.frequency) {
+            const start = new Date(editFormData.startDate);
             const end = new Date(start);
-            const freq = selectedSub.frequency.toLowerCase();
+            const freq = editFormData.frequency.toLowerCase();
 
             if (freq.includes('month')) {
                 const months = freq.includes('6') ? 6 : 1;
@@ -125,10 +132,10 @@ const SubscriptionPayment = () => {
             end.setDate(end.getDate() - 1);
 
             if (!isNaN(end.getTime())) {
-                setEndDate(end.toISOString().split('T')[0]);
+                setEditFormData(prev => ({...prev, endDate: end.toISOString().split('T')[0]}));
             }
         }
-    }, [startDate, selectedSub]);
+    }, [editFormData.startDate, editingSubId, editFormData.frequency]);
 
     // Filters
     const filteredPending = useMemo(() => {
@@ -162,35 +169,40 @@ const SubscriptionPayment = () => {
 
 
     const handlePayClick = (sub: PendingPaymentDisplay) => {
-        setSelectedSub(sub);
-        setStartDate('');
-        setEndDate('');
-        setPaymentMethod('Credit Card');
-        setTransactionId('');
-        setPrice(sub.price || '');
-        setFileName('');
-        setFileContent('');
+        setEditingSubId(sub.id);
+        setEditFormData({
+            companyName: sub.companyName,
+            subscriberName: sub.subscriberName,
+            subscriptionName: sub.subscriptionName,
+            price: sub.price || '',
+            frequency: sub.frequency || '',
+            startDate: '',
+            endDate: '',
+            paymentMethod: 'Credit Card',
+            transactionId: '',
+            reason: '',
+            fileName: '',
+            fileContent: ''
+        });
     };
 
-    const handleCloseModal = () => {
-        setSelectedSub(null);
+    const handleCancelEdit = () => {
+        setEditingSubId(null);
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setFileName(file.name);
             const reader = new FileReader();
             reader.onloadend = () => {
-                setFileContent(reader.result as string);
+                setEditFormData(prev => ({...prev, fileName: file.name, fileContent: reader.result as string}));
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const handleSave = async () => {
-        if (!selectedSub || isSubmitting) return;
-        if (!startDate || !endDate) {
+    const handleSaveInline = async (sub: PendingPaymentDisplay) => {
+        if (!editFormData.startDate || !editFormData.endDate || isSubmitting) {
             toast.error("Please select Start and End dates");
             return;
         }
@@ -198,18 +210,24 @@ const SubscriptionPayment = () => {
         setIsSubmitting(true);
         try {
             await submitPayment({
-                subscriptionNo: selectedSub.sn,
-                paymentMethod: paymentMethod,
-                transactionId: transactionId || `TXN-${Date.now()}`,
-                price: price,
-                startDate: startDate,
-                endDate: endDate,
-                planned_1: endDate,
-                insuranceDocument: fileContent || undefined
+                subscriptionNo: sub.sn,
+                paymentMethod: editFormData.paymentMethod,
+                transactionId: editFormData.transactionId || `TXN-${Date.now()}`,
+                price: editFormData.price,
+                startDate: editFormData.startDate,
+                endDate: editFormData.endDate,
+                planned_1: editFormData.endDate,
+                insuranceDocument: editFormData.fileContent || undefined,
+                reason: editFormData.reason,
+                companyName: editFormData.companyName,
+                subscriberName: editFormData.subscriberName,
+                subscriptionName: editFormData.subscriptionName,
+                frequency: editFormData.frequency,
+                purpose: sub.purpose
             });
 
             toast.success("Payment recorded successfully");
-            handleCloseModal();
+            handleCancelEdit();
             loadData(); // Refresh data
         } catch (err) {
             console.error('Failed to submit payment:', err);
@@ -312,22 +330,100 @@ const SubscriptionPayment = () => {
                             <tbody className="divide-y divide-gray-50 text-sm">
                                 {filteredPending.map((item) => (
                                     <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="p-4">
-                                            <button
-                                                onClick={() => handlePayClick(item)}
-                                                className="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 shadow-sm shadow-green-200 transition-colors flex items-center gap-1"
-                                            >
-                                                <CreditCard size={14} />
-                                                Pay
-                                            </button>
+                                        <td className="p-3">
+                                            {editingSubId === item.id ? (
+                                                <div className="flex flex-col gap-2">
+                                                    <button disabled={isSubmitting} onClick={() => handleSaveInline(item)} className="p-1.5 w-full flex items-center justify-center bg-green-100 text-green-700 hover:bg-green-200 rounded-lg transition-colors font-semibold shadow-sm" title="Save Payment">
+                                                        <Save size={16} />
+                                                    </button>
+                                                    <button disabled={isSubmitting} onClick={handleCancelEdit} className="p-1.5 w-full flex items-center justify-center bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors font-semibold shadow-sm" title="Cancel">
+                                                        <X size={16} />
+                                                    </button>
+                                                    <div className="relative mt-2">
+                                                        <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileChange} />
+                                                        <button className="p-1.5 w-full flex items-center justify-center bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100" title="Upload Receipt">
+                                                            <Upload size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handlePayClick(item)}
+                                                    className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5 w-full border border-indigo-100"
+                                                >
+                                                    <Edit2 size={14} />
+                                                    Edit / Pay
+                                                </button>
+                                            )}
                                         </td>
-                                        <td className="p-4 font-mono text-sm font-bold text-gray-700">{item.sn}</td>
-                                        <td className="p-4 font-medium text-gray-900">{item.companyName}</td>
-                                        <td className="p-4 text-gray-700">{item.subscriberName}</td>
-                                        <td className="p-4 text-indigo-600 font-medium">{item.subscriptionName}</td>
-                                        <td className="p-4 font-medium text-gray-900">{item.price}</td>
-                                        <td className="p-4 text-gray-500">{item.frequency}</td>
-                                        <td className="p-4 text-gray-500 whitespace-nowrap">{formatDate(item.approvalDate)}</td>
+                                        <td className="p-3 font-mono text-xs font-bold text-gray-700 shrink-0">{item.sn}</td>
+                                        <td className="p-3">
+                                            {editingSubId === item.id ? (
+                                                <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900 font-medium" value={editFormData.companyName} onChange={e => setEditFormData({...editFormData, companyName: e.target.value})} />
+                                            ) : (
+                                                <span className="font-medium text-gray-900">{item.companyName}</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3">
+                                            {editingSubId === item.id ? (
+                                                <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900" value={editFormData.subscriberName} onChange={e => setEditFormData({...editFormData, subscriberName: e.target.value})} />
+                                            ) : (
+                                                <span className="text-gray-700">{item.subscriberName}</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3">
+                                            {editingSubId === item.id ? (
+                                                <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-indigo-600 font-medium" value={editFormData.subscriptionName} onChange={e => setEditFormData({...editFormData, subscriptionName: e.target.value})} />
+                                            ) : (
+                                                <span className="text-indigo-600 font-medium">{item.subscriptionName}</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3">
+                                            {editingSubId === item.id ? (
+                                                <div className="flex flex-col gap-1.5 min-w-[120px]">
+                                                    <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-bold" value={editFormData.price} placeholder="Price" onChange={e => setEditFormData({...editFormData, price: e.target.value})} />
+                                                    <select className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none bg-white font-medium" value={editFormData.paymentMethod} onChange={e => setEditFormData({...editFormData, paymentMethod: e.target.value})}>
+                                                        <option value="Credit Card">Credit Card</option><option value="Bank Transfer">Bank Transfer</option><option value="UPI">UPI</option>
+                                                    </select>
+                                                    <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="TXN ID" value={editFormData.transactionId} onChange={e => setEditFormData({...editFormData, transactionId: e.target.value})} />
+                                                </div>
+                                            ) : (
+                                                <span className="font-medium text-gray-900">{item.price}</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3">
+                                            {editingSubId === item.id ? (
+                                                <div className="flex flex-col gap-1.5 min-w-[120px]">
+                                                    <select className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900 bg-white" value={editFormData.frequency} onChange={e => setEditFormData({...editFormData, frequency: e.target.value})}>
+                                                        <option value="" disabled>Select Frequency</option>
+                                                        <option value="Monthly">Monthly</option>
+                                                        <option value="Quarterly">Quarterly</option>
+                                                        <option value="Half-Yearly">Half-Yearly</option>
+                                                        <option value="Yearly">Yearly</option>
+                                                    </select>
+                                                    <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-700" placeholder="Reason (opt)" value={editFormData.reason} onChange={e => setEditFormData({...editFormData, reason: e.target.value})} />
+                                                    {editFormData.fileName && <span className="text-[10px] text-green-600 truncate bg-green-50 p-1 rounded border border-green-100">{editFormData.fileName}</span>}
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-500">{item.frequency}</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3">
+                                            {editingSubId === item.id ? (
+                                                <div className="flex flex-col gap-1.5 min-w-[130px]">
+                                                    <div className="relative">
+                                                        <span className="text-[10px] text-gray-400 absolute -top-4 left-0">Start Date *</span>
+                                                        <input type="date" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer" value={editFormData.startDate} onChange={e => setEditFormData({...editFormData, startDate: e.target.value})} />
+                                                    </div>
+                                                    <div className="relative mt-3">
+                                                        <span className="text-[10px] text-gray-400 absolute -top-4 left-0">End Date *</span>
+                                                        <input type="date" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer" value={editFormData.endDate} onChange={e => setEditFormData({...editFormData, endDate: e.target.value})} />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-500 whitespace-nowrap">{formatDate(item.approvalDate)}</span>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))}
                                 {filteredPending.length === 0 && (
@@ -409,23 +505,102 @@ const SubscriptionPayment = () => {
                                         <p className="text-xs text-gray-500 mt-0.5 font-medium">{item.companyName}</p>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => handlePayClick(item)}
-                                    className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-green-200"
-                                >
-                                    Pay
-                                </button>
+                                {editingSubId === item.id ? (
+                                    <div className="flex gap-2">
+                                        <button disabled={isSubmitting} onClick={() => handleSaveInline(item)} className="p-1.5 text-green-600 bg-green-50 rounded-lg">
+                                            <Save size={16} />
+                                        </button>
+                                        <button disabled={isSubmitting} onClick={handleCancelEdit} className="p-1.5 text-gray-500 bg-gray-100 rounded-lg">
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => handlePayClick(item)}
+                                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 text-xs font-bold rounded-lg shadow-sm flex items-center gap-1"
+                                    >
+                                        <Edit2 size={14} /> Edit & Pay
+                                    </button>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs pt-3 border-t border-dashed border-gray-100">
+                                <div className="col-span-2">
+                                    <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Company / Subscription</span>
+                                    {editingSubId === item.id ? (
+                                        <div className="flex flex-col gap-1 mt-1">
+                                            <input type="text" className="w-full p-1 border border-gray-300 rounded text-xs outline-none" value={editFormData.companyName} onChange={e => setEditFormData({...editFormData, companyName: e.target.value})} />
+                                            <input type="text" className="w-full p-1 border border-gray-300 rounded text-xs outline-none text-indigo-600 font-medium" value={editFormData.subscriptionName} onChange={e => setEditFormData({...editFormData, subscriptionName: e.target.value})} />
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-0.5 mt-1">
+                                            <span className="font-semibold text-gray-700">{item.companyName}</span>
+                                            <span className="text-indigo-600 font-medium">{item.subscriptionName}</span>
+                                        </div>
+                                    )}
+                                </div>
                                 <div>
                                     <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Subscriber</span>
-                                    <span className="font-semibold text-gray-700">{item.subscriberName}</span>
+                                    {editingSubId === item.id ? (
+                                        <input type="text" className="w-full p-1 border border-gray-300 rounded text-xs outline-none" value={editFormData.subscriberName} onChange={e => setEditFormData({...editFormData, subscriberName: e.target.value})} />
+                                    ) : (
+                                        <span className="font-semibold text-gray-700">{item.subscriberName}</span>
+                                    )}
                                 </div>
                                 <div>
-                                    <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Price / Freq</span>
-                                    <span className="font-bold text-gray-900">{item.price} <span className="text-gray-400 font-normal text-[10px]">/ {item.frequency}</span></span>
+                                    <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Frequency</span>
+                                    {editingSubId === item.id ? (
+                                        <select className="w-full p-1 border border-gray-300 rounded text-xs outline-none bg-white" value={editFormData.frequency} onChange={e => setEditFormData({...editFormData, frequency: e.target.value})}>
+                                            <option value="" disabled>Select Frequency</option>
+                                            <option value="Monthly">Monthly</option>
+                                            <option value="Quarterly">Quarterly</option>
+                                            <option value="Half-Yearly">Half-Yearly</option>
+                                            <option value="Yearly">Yearly</option>
+                                        </select>
+                                    ) : (
+                                        <span className="font-semibold text-gray-700">{item.frequency}</span>
+                                    )}
                                 </div>
+                                
+                                {editingSubId === item.id ? (
+                                    <>
+                                        <div className="col-span-2">
+                                            <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Payment Details</span>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                <input type="text" className="w-full p-1 border border-gray-300 rounded text-xs outline-none font-bold" value={editFormData.price} placeholder="Price" onChange={e => setEditFormData({...editFormData, price: e.target.value})} />
+                                                <select className="w-full p-1 border border-gray-300 rounded text-xs outline-none" value={editFormData.paymentMethod} onChange={e => setEditFormData({...editFormData, paymentMethod: e.target.value})}>
+                                                    <option value="Credit Card">Credit Card</option><option value="Bank Transfer">Bank Transfer</option><option value="UPI">UPI</option>
+                                                </select>
+                                                <input type="text" className="w-full p-1 border border-gray-300 rounded text-xs outline-none" placeholder="Transaction ID" value={editFormData.transactionId} onChange={e => setEditFormData({...editFormData, transactionId: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Dates & Documents</span>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                <input type="date" className="w-full p-1 border border-gray-300 rounded text-xs outline-none" value={editFormData.startDate} onChange={e => setEditFormData({...editFormData, startDate: e.target.value})} />
+                                                <input type="date" className="w-full p-1 border border-gray-300 rounded text-xs outline-none" value={editFormData.endDate} onChange={e => setEditFormData({...editFormData, endDate: e.target.value})} />
+                                                <div className="relative mt-1">
+                                                    <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileChange} />
+                                                    <div className="w-full p-1.5 border border-indigo-200 border-dashed rounded text-xs text-indigo-600 flex items-center justify-center gap-2 bg-indigo-50">
+                                                        <Upload size={14} /> {editFormData.fileName ? editFormData.fileName.slice(0, 15) + '...' : 'Upload Receipt'}
+                                                    </div>
+                                                </div>
+                                                <input type="text" className="w-full p-1 mt-1 border border-gray-300 rounded text-xs outline-none" placeholder="Reason (opt)" value={editFormData.reason} onChange={e => setEditFormData({...editFormData, reason: e.target.value})} />
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="col-span-2 pt-2 border-t border-gray-50 flex justify-between">
+                                        <div>
+                                            <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Price</span>
+                                            <span className="font-bold text-gray-900">{item.price}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Approved On</span>
+                                            <span className="text-gray-500 font-mono">{formatDate(item.approvalDate)}</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -492,131 +667,7 @@ const SubscriptionPayment = () => {
                 </div>
             )}
 
-            {/* Payment Modal */}
-            {selectedSub && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-scale-in">
-                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h3 className="text-lg font-bold text-gray-800">Process Payment</h3>
-                            <button onClick={handleCloseModal} className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
 
-                        <div className="p-6">
-                            {/* Read-only details */}
-                            <div className="grid grid-cols-3 gap-4 text-sm bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6">
-                                <div>
-                                    <span className="block text-xs text-gray-500 uppercase font-semibold">Subscription No</span>
-                                    <span className="font-mono text-gray-700 font-bold">{selectedSub.sn}</span>
-                                </div>
-                                <div>
-                                    <span className="block text-xs text-gray-500 uppercase font-semibold">Company</span>
-                                    <span className="font-medium text-gray-900">{selectedSub.companyName}</span>
-                                </div>
-                                <div>
-                                    <span className="block text-xs text-gray-500 uppercase font-semibold">Subscriber</span>
-                                    <span className="text-gray-900">{selectedSub.subscriberName}</span>
-                                </div>
-                                <div className="col-span-2">
-                                    <span className="block text-xs text-gray-500 uppercase font-semibold">Subscription</span>
-                                    <span className="font-medium text-indigo-600">{selectedSub.subscriptionName}</span>
-                                </div>
-                                <div>
-                                    <span className="block text-xs text-gray-500 uppercase font-semibold">Price </span>
-                                    <div className="flex items-center gap-3">
-                                        <input
-                                            type="text"
-                                            className="w-full p-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                            value={price}
-                                            onChange={(e) => setPrice(e.target.value)}
-                                        />
-                                        <div className="flex items-baseline gap-1 whitespace-nowrap">
-                                            <span className="text-xs text-gray-500 uppercase font-semibold">Freq</span>
-                                            <span className="text-sm text-gray-700">{selectedSub.frequency}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Input Form */}
-                            <div className="grid grid-cols-2 gap-5">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Start Date</label>
-                                    <input
-                                        type="date"
-                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">End Date</label>
-                                    <input
-                                        type="date"
-                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Payment Method</label>
-                                    <select
-                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium"
-                                        value={paymentMethod}
-                                        onChange={(e) => setPaymentMethod(e.target.value)}
-                                    >
-                                        <option value="Credit Card">Credit Card</option>
-                                        <option value="Bank Transfer">Bank Transfer</option>
-                                        <option value="UPI">UPI</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Transaction ID</label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                        placeholder="e.g. TXN123456"
-                                        value={transactionId}
-                                        onChange={(e) => setTransactionId(e.target.value)}
-                                    />
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Upload Receipt</label>
-                                    <div className="relative">
-                                        <input
-                                            type="file"
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                            onChange={handleFileChange}
-                                        />
-                                        <div className="w-full p-2.5 border border-gray-300 border-dashed rounded-lg flex items-center gap-2 text-gray-500 bg-gray-50 hover:bg-gray-100 transition-colors">
-                                            <Upload size={16} />
-                                            <span className="text-xs truncate">{fileName || 'Choose file...'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
-                            <button
-                                onClick={handleCloseModal}
-                                className="px-6 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-white transition-all shadow-sm"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={isSubmitting}
-                                className="px-8 py-2.5 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 shadow-lg shadow-green-200 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <Save size={18} />
-                                {isSubmitting ? 'Saving...' : 'Save'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

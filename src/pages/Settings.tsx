@@ -3,8 +3,7 @@ import { User, Bell, Shield, X, Check, Search, RefreshCw } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import useHeaderStore from '../store/headerStore';
 import { toast } from 'react-hot-toast';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050/api';
+import { authFetch, API_BASE_URL } from '../utils/apiClient';
 
 // Backend user interface
 interface BackendUser {
@@ -106,7 +105,7 @@ const Settings = () => {
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/settings/users`);
+            const res = await authFetch(`${API_BASE_URL}/settings/users`);
             if (!res.ok) throw new Error('Failed to fetch users');
             const data = await res.json();
             setUsers(data.users || []);
@@ -175,13 +174,17 @@ const Settings = () => {
         }
 
         try {
+            // Filter pages to ensure we don't save pages for systems that are no longer selected
+            const validPages = getAvailablePages();
+            const filteredPages = (formData.pageAccess || []).filter(page => validPages.includes(page));
+
             // Update user access
-            const res = await fetch(`${API_BASE_URL}/settings/users/${editingUser.id}/access`, {
+            const res = await authFetch(`${API_BASE_URL}/settings/users/${editingUser.id}/access`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     systems: formData.systemAccess,
-                    pages: formData.pageAccess
+                    pages: filteredPages
                 })
             });
 

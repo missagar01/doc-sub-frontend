@@ -27,6 +27,19 @@ const Login = () => {
       const success = await login(username, password);
       if (success) {
         toast.success("Login successful!");
+        
+        // Check for empty permissions
+        const user = useAuthStore.getState().currentUser;
+        if (user && (!user.systemAccess || user.systemAccess.length === 0) && (!user.pageAccess || user.pageAccess.length === 0)) {
+           toast.error("You do not have any permission for accessing any pages or any section\n Contact admin for more details!", {
+             style: {
+               color: 'red',
+               fontWeight: 'bold'
+             },
+             icon: '🚫'
+           });
+        }
+
         navigate("/", { replace: true });
       } else {
         toast.error("Invalid credentials");

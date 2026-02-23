@@ -1,6 +1,6 @@
 // Document API Service - connects frontend to backend document endpoints
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050/api';
+import { authFetch, API_BASE_URL } from './apiClient';
 
 // Document response type from backend
 export interface BackendDocument {
@@ -50,7 +50,7 @@ export async function createDocument(documentData: {
     email?: string;
     mobile?: string;
 }): Promise<BackendDocument> {
-    const res = await fetch(`${API_BASE_URL}/documents/create`, {
+    const res = await authFetch(`${API_BASE_URL}/documents/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(documentData)
@@ -79,7 +79,7 @@ export async function createMultipleDocuments(documents: Array<{
     email?: string;
     mobile?: string;
 }>): Promise<BackendDocument[]> {
-    const res = await fetch(`${API_BASE_URL}/documents/create-multiple`, {
+    const res = await authFetch(`${API_BASE_URL}/documents/create-multiple`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ documents })
@@ -96,7 +96,7 @@ export async function createMultipleDocuments(documents: Array<{
 
 // Get all documents
 export async function fetchAllDocuments(): Promise<BackendDocument[]> {
-    const res = await fetch(`${API_BASE_URL}/documents`);
+    const res = await authFetch(`${API_BASE_URL}/documents`);
 
 
     if (!res.ok) {
@@ -109,7 +109,7 @@ export async function fetchAllDocuments(): Promise<BackendDocument[]> {
 
 // Get document by ID
 export async function fetchDocumentById(id: number): Promise<BackendDocument> {
-    const res = await fetch(`${API_BASE_URL}/documents/${id}`);
+    const res = await authFetch(`${API_BASE_URL}/documents/${id}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch document');
@@ -133,7 +133,7 @@ export async function updateDocument(id: number, documentData: Partial<{
     email: string;
     mobile: string;
 }>): Promise<BackendDocument> {
-    const res = await fetch(`${API_BASE_URL}/documents/${id}`, {
+    const res = await authFetch(`${API_BASE_URL}/documents/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(documentData)
@@ -147,20 +147,11 @@ export async function updateDocument(id: number, documentData: Partial<{
     return data.document;
 }
 
-// Delete document (soft delete)
-export async function deleteDocument(id: number): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/documents/${id}`, {
-        method: 'DELETE'
-    });
 
-    if (!res.ok) {
-        throw new Error('Failed to delete document');
-    }
-}
 
 // Get documents needing renewal
 export async function fetchDocumentsNeedingRenewal(): Promise<BackendDocument[]> {
-    const res = await fetch(`${API_BASE_URL}/documents/renewal`);
+    const res = await authFetch(`${API_BASE_URL}/documents/renewal`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch renewal documents');
@@ -179,7 +170,7 @@ export async function fetchDocumentStats(): Promise<{
     needs_renewal: number;
     recent: number;
 }> {
-    const res = await fetch(`${API_BASE_URL}/documents/stats`);
+    const res = await authFetch(`${API_BASE_URL}/documents/stats`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch document stats');
@@ -191,6 +182,13 @@ export async function fetchDocumentStats(): Promise<{
 
 // Utility: Convert backend document to frontend format
 export function mapBackendToFrontend(doc: BackendDocument): FrontendDocument {
+    // Helper to ensure YYYY-MM-DD for date inputs
+    const toDateString = (dateStr: string | null | undefined) => {
+        if (!dateStr) return undefined;
+        const d = new Date(dateStr);
+        return isNaN(d.getTime()) ? undefined : d.toISOString().split('T')[0];
+    };
+
     return {
         id: String(doc.document_id),
         sn: `SN-${doc.document_id.toString().padStart(3, '0')}`,
@@ -199,10 +197,10 @@ export function mapBackendToFrontend(doc: BackendDocument): FrontendDocument {
         documentType: doc.document_type || '',
         category: doc.category || '',
         needsRenewal: doc.need_renewal === 'yes',
-        renewalDate: doc.renewal_date || undefined,
+        renewalDate: toDateString(doc.renewal_date),
         file: doc.image ? getFileNameFromUrl(doc.image) : null,
         fileContent: doc.image || undefined, // S3 URL goes here for viewing
-        date: doc.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+        date: toDateString(doc.created_at) || new Date().toISOString().split('T')[0],
         status: 'Active'
     };
 }

@@ -4,7 +4,9 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { useEffect } from "react";
 import { Toaster } from "react-hot-toast";
+import useAuthStore from "./store/authStore";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -45,6 +47,14 @@ import AccountBillFiled from "./pages/account/BillFiled";
 
 // Main Router Configuration
 function App() {
+  const { fetchMe, isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchMe();
+    }
+  }, [isAuthenticated, fetchMe]);
+
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Toaster position="top-right" />

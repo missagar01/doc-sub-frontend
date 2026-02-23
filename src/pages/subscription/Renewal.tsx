@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import useAuthStore from '../../store/authStore';
 import useHeaderStore from '../../store/headerStore';
-import { RotateCcw, X, Check, Save, Search, RefreshCw } from 'lucide-react';
+import { RotateCcw, X, Check, Save, Search, RefreshCw, Edit2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
 import {
@@ -47,10 +47,25 @@ const SubscriptionRenewal = () => {
         setTitle('Subscription Renewal');
     }, [setTitle]);
 
-    // Modal State
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedSub, setSelectedSub] = useState<PendingRenewalDisplay | null>(null);
-    const [renewalAction, setRenewalAction] = useState<'Approved' | 'Rejected' | ''>('');
+    // Inline Editing State
+    const [editingSubId, setEditingSubId] = useState<string | null>(null);
+    const [editFormData, setEditFormData] = useState<{
+        renewalAction: 'Approved' | 'Rejected' | '';
+        price: string;
+        companyName: string;
+        subscriberName: string;
+        subscriptionName: string;
+        frequency: string;
+        endDate: string;
+    }>({
+        renewalAction: '',
+        price: '',
+        companyName: '',
+        subscriberName: '',
+        subscriptionName: '',
+        frequency: '',
+        endDate: ''
+    });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Load data from backend
@@ -73,7 +88,8 @@ const SubscriptionRenewal = () => {
                 subscriptionName: item.subscription_name || '',
                 price: item.price || '',
                 frequency: item.frequency || '',
-                endDate: item.end_date || ''
+                endDate: item.end_date || '',
+                reasonForRenewal: item.reason_for_renewal || '',
             }))
                 .filter((item: any) => {
                     // Check if planned_1 exists and is valid based on 7-day logic
@@ -149,19 +165,33 @@ const SubscriptionRenewal = () => {
     }, [historyList, searchTerm, currentUser]);
 
     const handleAction = (sub: PendingRenewalDisplay) => {
-        setSelectedSub(sub);
-        setRenewalAction('');
-        setIsModalOpen(true);
+        setEditingSubId(sub.id);
+        setEditFormData({
+            renewalAction: '',
+            price: sub.price,
+            companyName: sub.companyName,
+            subscriberName: sub.subscriberName,
+            subscriptionName: sub.subscriptionName,
+            frequency: sub.frequency,
+            endDate: sub.endDate
+        });
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setSelectedSub(null);
+    const handleCancelEdit = () => {
+        setEditingSubId(null);
+        setEditFormData({
+            renewalAction: '',
+            price: '',
+            companyName: '',
+            subscriberName: '',
+            subscriptionName: '',
+            frequency: '',
+            endDate: ''
+        });
     };
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedSub || !renewalAction || isSubmitting) {
+    const handleSaveInline = async (sub: PendingRenewalDisplay) => {
+        if (!editFormData.renewalAction || isSubmitting) {
             toast.error("Please select an action");
             return;
         }
@@ -169,16 +199,22 @@ const SubscriptionRenewal = () => {
         setIsSubmitting(true);
         try {
             await submitRenewal({
-                subscription_no: selectedSub.sn,
-                renewal_status: renewalAction,
+                subscription_no: sub.sn,
+                renewal_status: editFormData.renewalAction,
                 approved_by: 'Admin', // TODO: get from auth context
-                price: selectedSub.price
+                price: editFormData.price,
+                // Passing the new mutable fields to the backend updater
+                company_name: editFormData.companyName,
+                subscriber_name: editFormData.subscriberName,
+                subscription_name: editFormData.subscriptionName,
+                frequency: editFormData.frequency,
+                end_date: editFormData.endDate
             });
 
-            toast.success(renewalAction === 'Approved'
+            toast.success(editFormData.renewalAction === 'Approved'
                 ? 'Subscription Renewed!'
                 : 'Subscription Not Renewed');
-            handleCloseModal();
+            handleCancelEdit();
             loadData(); // Refresh data
         } catch (err) {
             console.error('Failed to submit renewal:', err);
@@ -266,33 +302,132 @@ const SubscriptionRenewal = () => {
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Frequency</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Price</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">End Date</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Reason</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 text-sm">
                                 {filteredPending.length > 0 ? (
                                     filteredPending.map((sub) => (
                                         <tr key={sub.id} className="hover:bg-gray-50/80 transition-colors">
-                                            <td className="p-3 text-center">
-                                                <button
-                                                    onClick={() => handleAction(sub)}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
-                                                >
-                                                    <RotateCcw size={14} />
-                                                    Action
-                                                </button>
+                                            <td className="p-3 text-center flex justify-center gap-2">
+                                                {editingSubId === sub.id ? (
+                                                    <>
+                                                        <button disabled={isSubmitting} onClick={() => handleSaveInline(sub)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Save">
+                                                            <Save size={16} />
+                                                        </button>
+                                                        <button disabled={isSubmitting} onClick={handleCancelEdit} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" title="Cancel">
+                                                            <X size={16} />
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleAction(sub)}
+                                                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5 w-full"
+                                                        title="Edit Renewal"
+                                                    >
+                                                        <Edit2 size={14} />
+                                                        Edit / Renew
+                                                    </button>
+                                                )}
                                             </td>
                                             <td className="p-3 font-mono font-bold text-xs text-gray-700">{sub.sn}</td>
-                                            <td className="p-3 font-medium text-gray-900">{sub.companyName}</td>
-                                            <td className="p-3 text-gray-600">{sub.subscriberName}</td>
-                                            <td className="p-3 text-gray-900">{sub.subscriptionName}</td>
                                             <td className="p-3">
-                                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">{sub.frequency}</span>
+                                                {editingSubId === sub.id ? (
+                                                    <input 
+                                                        type="text" 
+                                                        className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900 font-medium" 
+                                                        value={editFormData.companyName} 
+                                                        onChange={e => setEditFormData({...editFormData, companyName: e.target.value})} 
+                                                    />
+                                                ) : (
+                                                    <span className="font-medium text-gray-900">{sub.companyName}</span>
+                                                )}
                                             </td>
-                                            <td className="p-3 font-medium text-gray-900">{sub.price}</td>
+                                            <td className="p-3">
+                                                {editingSubId === sub.id ? (
+                                                    <input 
+                                                        type="text" 
+                                                        className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-600" 
+                                                        value={editFormData.subscriberName} 
+                                                        onChange={e => setEditFormData({...editFormData, subscriberName: e.target.value})} 
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-600">{sub.subscriberName}</span>
+                                                )}
+                                            </td>
+                                            <td className="p-3">
+                                                {editingSubId === sub.id ? (
+                                                    <input 
+                                                        type="text" 
+                                                        className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900" 
+                                                        value={editFormData.subscriptionName} 
+                                                        onChange={e => setEditFormData({...editFormData, subscriptionName: e.target.value})} 
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900">{sub.subscriptionName}</span>
+                                                )}
+                                            </td>
+                                            <td className="p-3">
+                                                {editingSubId === sub.id ? (
+                                                    <select 
+                                                        className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-indigo-700 bg-white font-medium" 
+                                                        value={editFormData.frequency} 
+                                                        onChange={e => setEditFormData({...editFormData, frequency: e.target.value})} 
+                                                    >
+                                                        <option value="" disabled>Select Frequency</option>
+                                                        <option value="Monthly">Monthly</option>
+                                                        <option value="Quarterly">Quarterly</option>
+                                                        <option value="Half-Yearly">Half-Yearly</option>
+                                                        <option value="Yearly">Yearly</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">{sub.frequency}</span>
+                                                )}
+                                            </td>
+                                            <td className="p-3">
+                                                {editingSubId === sub.id ? (
+                                                    <div className="flex flex-col gap-1.5 min-w-[120px]">
+                                                        <select
+                                                            value={editFormData.renewalAction}
+                                                            onChange={(e) => setEditFormData({...editFormData, renewalAction: e.target.value as 'Approved' | 'Rejected'})}
+                                                            className="w-full text-xs p-1.5 border border-indigo-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none select-none text-gray-700 font-medium"
+                                                        >
+                                                            <option value="" disabled>Action?</option>
+                                                            <option value="Approved">Renew</option>
+                                                            <option value="Rejected">Not Renew</option>
+                                                        </select>
+                                                        <input 
+                                                            type="text" 
+                                                            className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none" 
+                                                            value={editFormData.price} 
+                                                            placeholder="Price"
+                                                            onChange={e => setEditFormData({...editFormData, price: e.target.value})} 
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <span className="font-medium text-gray-900">{sub.price}</span>
+                                                )}
+                                            </td>
                                             <td className="p-3 text-center">
-                                                <span className="inline-flex items-center justify-center px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded text-xs font-medium">
-                                                    {formatDate(sub.endDate)}
-                                                </span>
+                                                {editingSubId === sub.id ? (
+                                                    <input 
+                                                        type="date" 
+                                                        className="w-full p-1.5 border border-amber-300 bg-amber-50 rounded text-xs focus:ring-1 focus:ring-amber-500 outline-none text-amber-700 font-medium" 
+                                                        value={editFormData.endDate ? new Date(editFormData.endDate).toISOString().split('T')[0] : ''} 
+                                                        onChange={e => setEditFormData({...editFormData, endDate: e.target.value})} 
+                                                    />
+                                                ) : (
+                                                    <span className="inline-flex items-center justify-center px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded text-xs font-medium">
+                                                        {formatDate(sub.endDate)}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className='p-3 text-center'>
+                                                {(sub as any).reasonForRenewal && (
+                                                    <span className="inline-flex items-center justify-center px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded text-xs font-medium">
+                                                        {(sub as any).reasonForRenewal}
+                                                    </span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))
@@ -387,12 +522,24 @@ const SubscriptionRenewal = () => {
                                             <p className="text-xs text-gray-500 mt-0.5 font-medium">{sub.companyName}</p>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => handleAction(sub)}
-                                        className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-indigo-200"
-                                    >
-                                        Action
-                                    </button>
+                                    {editingSubId === sub.id ? (
+                                        <div className="flex gap-2">
+                                            <button disabled={isSubmitting} onClick={() => handleSaveInline(sub)} className="p-1.5 text-green-600 bg-green-50 rounded-lg">
+                                                <Save size={16} />
+                                            </button>
+                                            <button disabled={isSubmitting} onClick={handleCancelEdit} className="p-1.5 text-gray-500 bg-gray-100 rounded-lg">
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleAction(sub)}
+                                            className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 text-xs font-bold rounded-lg shadow-sm flex items-center gap-1"
+                                            title="Edit Renewal"
+                                        >
+                                            <Edit2 size={14} /> Edit / Renew
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs pt-3 border-t border-dashed border-gray-100">
@@ -402,13 +549,54 @@ const SubscriptionRenewal = () => {
                                     </div>
                                     <div>
                                         <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Price / Freq</span>
-                                        <span className="font-bold text-gray-900">{sub.price} <span className="text-gray-400 font-normal text-[10px]">/ {sub.frequency}</span></span>
+                                        {editingSubId === sub.id ? (
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full p-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none" 
+                                                    value={editFormData.price} 
+                                                    placeholder="Price"
+                                                    onChange={e => setEditFormData({...editFormData, price: e.target.value})} 
+                                                />
+                                                <select
+                                                    className="w-full p-1 border border-gray-300 rounded text-xs outline-none bg-white font-medium"
+                                                    value={editFormData.frequency}
+                                                    onChange={e => setEditFormData({...editFormData, frequency: e.target.value})}
+                                                >
+                                                    <option value="" disabled>Freq?</option>
+                                                    <option value="Monthly">Monthly</option>
+                                                    <option value="Quarterly">Quarterly</option>
+                                                    <option value="Half-Yearly">Half-Yearly</option>
+                                                    <option value="Yearly">Yearly</option>
+                                                </select>
+                                                <select
+                                                    value={editFormData.renewalAction}
+                                                    onChange={(e) => setEditFormData({...editFormData, renewalAction: e.target.value as 'Approved' | 'Rejected'})}
+                                                    className="w-full text-xs p-1 border border-indigo-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none text-gray-700 font-medium bg-white"
+                                                >
+                                                    <option value="" disabled>Action?</option>
+                                                    <option value="Approved">Renew</option>
+                                                    <option value="Rejected">Not Renew</option>
+                                                </select>
+                                            </div>
+                                        ) : (
+                                            <span className="font-bold text-gray-900">{sub.price} <span className="text-gray-400 font-normal text-[10px]">/ {sub.frequency}</span></span>
+                                        )}
                                     </div>
                                 </div>
 
                                 <div className="bg-gray-50 rounded-lg p-3 text-[10px] border border-gray-100 text-center">
                                     <span className="block text-gray-400 mb-0.5 uppercase tracking-wider font-semibold">End Date</span>
-                                    <span className="font-mono text-amber-600 font-bold">{formatDate(sub.endDate)}</span>
+                                    {editingSubId === sub.id ? (
+                                        <input 
+                                            type="date" 
+                                            className="w-full mt-1 p-1 border border-amber-300 bg-amber-50 rounded text-xs focus:ring-1 focus:ring-amber-500 outline-none text-amber-700 font-medium" 
+                                            value={editFormData.endDate ? new Date(editFormData.endDate).toISOString().split('T')[0] : ''} 
+                                            onChange={e => setEditFormData({...editFormData, endDate: e.target.value})} 
+                                        />
+                                    ) : (
+                                        <span className="font-mono text-amber-600 font-bold">{formatDate(sub.endDate)}</span>
+                                    )}
                                 </div>
                             </div>
                         ))
@@ -467,98 +655,7 @@ const SubscriptionRenewal = () => {
                 </div>
             )}
 
-            {/* Action Popup Modal */}
-            {isModalOpen && selectedSub && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
-                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <div>
-                                <h3 className="text-base font-bold text-gray-800">Process Renewal</h3>
-                                <p className="text-[10px] text-gray-500 mt-0.5">Approve or Reject Subscription Renewal</p>
-                            </div>
-                            <button onClick={handleCloseModal} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSave} className="p-5 space-y-4">
-                            {/* Pre-filled Info Grid */}
-                            <div className="grid grid-cols-2 gap-3 text-xs bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                <div>
-                                    <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-0.5">Subscription No</label>
-                                    <div className="font-mono text-gray-700 font-medium">{selectedSub.sn}</div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-0.5">Company</label>
-                                    <div className="text-gray-900 font-medium">{selectedSub.companyName}</div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-0.5">Subscriber</label>
-                                    <div className="text-gray-700">{selectedSub.subscriberName}</div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-0.5">Subscription</label>
-                                    <div className="text-gray-700">{selectedSub.subscriptionName}</div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-0.5">Frequency</label>
-                                    <div className="text-gray-700">{selectedSub.frequency}</div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-0.5">Price</label>
-                                    <input
-                                        type="text"
-                                        value={selectedSub.price}
-                                        onChange={(e) => setSelectedSub({ ...selectedSub, price: e.target.value })}
-                                        className="w-full bg-white border border-gray-200 text-gray-900 font-bold text-sm rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                    />
-                                </div>
-                                <div className="col-span-2 pt-2 border-t border-gray-200 mt-2">
-                                    <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-0.5">Current End Date</label>
-                                    <div className="text-amber-600 font-bold text-sm">{formatDate(selectedSub.endDate)}</div>
-                                </div>
-                            </div>
-
-                            {/* Renewal Subscription Dropdown */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1.5">Renewal Subscription</label>
-                                <div className="relative">
-                                    <select
-                                        value={renewalAction}
-                                        onChange={(e) => setRenewalAction(e.target.value as 'Approved' | 'Rejected')}
-                                        className="w-full appearance-none bg-white border border-gray-200 text-gray-700 text-sm rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                    >
-                                        <option value="" disabled>Select Action</option>
-                                        <option value="Approved">Renew</option>
-                                        <option value="Rejected">Not Renew</option>
-                                    </select>
-                                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
-                                        <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={handleCloseModal}
-                                    className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-gray-700 font-medium text-sm hover:bg-gray-50 transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <Save size={16} />
-                                    {isSubmitting ? 'Saving...' : 'Save'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {/* Removed the monolithic Action Popup Modal */ }
         </div>
     );
 };

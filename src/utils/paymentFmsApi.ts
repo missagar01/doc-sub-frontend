@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+import { authFetch, API_BASE_URL } from './apiClient';
 
 export interface PaymentFmsRequest {
     id?: string;
@@ -50,7 +50,7 @@ export const transformPaymentFms = (item: PaymentFmsRequest) => ({
 // ==================== GENERAL ====================
 // Create a new payment FMS request
 export const createPaymentFms = async (data: Omit<PaymentFmsRequest, 'id' | 'createdAt'>): Promise<PaymentFmsRequest> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/create`, {
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -62,7 +62,7 @@ export const createPaymentFms = async (data: Omit<PaymentFmsRequest, 'id' | 'cre
 
 // Get all payment FMS records
 export const getAllPaymentFms = async (): Promise<PaymentFmsRequest[]> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/all`);
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/all`);
     const result = await res.json();
     if (!result.success) throw new Error(result.error || 'Failed to fetch payment requests');
     return result.data;
@@ -70,7 +70,7 @@ export const getAllPaymentFms = async (): Promise<PaymentFmsRequest[]> => {
 
 // Delete payment FMS record
 export const deletePaymentFms = async (id: string): Promise<void> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/${id}`, {
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/${id}`, {
         method: 'DELETE',
     });
     const result = await res.json();
@@ -79,21 +79,21 @@ export const deletePaymentFms = async (id: string): Promise<void> => {
 
 // ==================== STAGE 1: APPROVAL ====================
 export const getApprovalPending = async (): Promise<PaymentFmsRequest[]> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/approval/pending`);
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/approval/pending`);
     const result = await res.json();
     if (!result.success) throw new Error(result.error || 'Failed to fetch approval pending');
     return result.data;
 };
 
 export const getApprovalHistory = async (): Promise<PaymentFmsRequest[]> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/approval/history`);
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/approval/history`);
     const result = await res.json();
     if (!result.success) throw new Error(result.error || 'Failed to fetch approval history');
     return result.data;
 };
 
 export const processApproval = async (id: string, status: string, stageRemarks?: string): Promise<PaymentFmsRequest> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/approval/${id}/process`, {
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/approval/${id}/process`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, stageRemarks }),
@@ -105,21 +105,21 @@ export const processApproval = async (id: string, status: string, stageRemarks?:
 
 // ==================== STAGE 2: MAKE PAYMENT ====================
 export const getMakePaymentPending = async (): Promise<PaymentFmsRequest[]> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/make-payment/pending`);
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/make-payment/pending`);
     const result = await res.json();
     if (!result.success) throw new Error(result.error || 'Failed to fetch make payment pending');
     return result.data;
 };
 
 export const getMakePaymentHistory = async (): Promise<PaymentFmsRequest[]> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/make-payment/history`);
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/make-payment/history`);
     const result = await res.json();
     if (!result.success) throw new Error(result.error || 'Failed to fetch make payment history');
     return result.data;
 };
 
 export const processMakePayment = async (id: string, paymentType: string): Promise<PaymentFmsRequest> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/make-payment/${id}/process`, {
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/make-payment/${id}/process`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentType }),
@@ -131,21 +131,21 @@ export const processMakePayment = async (id: string, paymentType: string): Promi
 
 // ==================== STAGE 3: TALLY ENTRY ====================
 export const getTallyEntryPending = async (): Promise<PaymentFmsRequest[]> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/tally-entry/pending`);
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/tally-entry/pending`);
     const result = await res.json();
     if (!result.success) throw new Error(result.error || 'Failed to fetch tally entry pending');
     return result.data;
 };
 
 export const getTallyEntryHistory = async (): Promise<PaymentFmsRequest[]> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/tally-entry/history`);
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/tally-entry/history`);
     const result = await res.json();
     if (!result.success) throw new Error(result.error || 'Failed to fetch tally entry history');
     return result.data;
 };
 
 export const processTallyEntry = async (ids: string[]): Promise<PaymentFmsRequest[]> => {
-    const res = await fetch(`${API_BASE_URL}/payment-fms/tally-entry/process`, {
+    const res = await authFetch(`${API_BASE_URL}/payment-fms/tally-entry/process`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids }),

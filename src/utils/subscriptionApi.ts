@@ -1,7 +1,7 @@
 // Subscription API Service Layer
 // Connects frontend to backend subscription APIs
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+import { authFetch, API_BASE_URL } from './apiClient';
 
 // ==================== SUBSCRIPTION APIs ====================
 
@@ -38,7 +38,7 @@ export interface SubscriptionResponse {
 
 // Generate next subscription number
 export async function generateSubscriptionNo(): Promise<string> {
-    const res = await fetch(`${API_BASE_URL}/subscription/generate-number`);
+    const res = await authFetch(`${API_BASE_URL}/subscription/generate-number`);
     if (!res.ok) throw new Error('Failed to generate subscription number');
     const data = await res.json();
     return data.subscriptionNo;
@@ -46,7 +46,7 @@ export async function generateSubscriptionNo(): Promise<string> {
 
 // Create new subscription
 export async function createSubscription(payload: SubscriptionPayload): Promise<any> {
-    const res = await fetch(`${API_BASE_URL}/subscription/create`, {
+    const res = await authFetch(`${API_BASE_URL}/subscription/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -57,8 +57,30 @@ export async function createSubscription(payload: SubscriptionPayload): Promise<
 
 // Fetch all subscriptions
 export async function fetchAllSubscriptions(): Promise<SubscriptionResponse[]> {
-    const res = await fetch(`${API_BASE_URL}/subscription/all`);
+    const res = await authFetch(`${API_BASE_URL}/subscription/all`);
     if (!res.ok) throw new Error('Failed to fetch subscriptions');
+    return res.json();
+}
+
+// Update subscription
+export async function updateSubscription(id: string | number, payload: Partial<SubscriptionPayload>): Promise<any> {
+    const res = await authFetch(`${API_BASE_URL}/subscription/update/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            // Transform frontend keys to backend columns expected by update API
+            company_name: payload.companyName,
+            subscriber_name: payload.subscriberName,
+            subscription_name: payload.subscriptionName,
+            price: payload.price,
+            frequency: payload.frequency,
+            purpose: payload.purpose,
+            start_date: (payload as any).startDate, // in case it's passed
+            end_date: (payload as any).endDate,     // in case it's passed
+            timestamp: (payload as any).timestamp     // handling requested date updates
+        })
+    });
+    if (!res.ok) throw new Error('Failed to update subscription');
     return res.json();
 }
 
@@ -91,22 +113,28 @@ export interface ApprovalPayload {
     note: string;
     approvedBy: string;
     requestedOn: string;
+    companyName?: string;
+    subscriberName?: string;
+    subscriptionName?: string;
+    price?: string;
+    frequency?: string;
+    purpose?: string;
 }
 
 export async function fetchPendingApprovals(): Promise<ApprovalItem[]> {
-    const res = await fetch(`${API_BASE_URL}/subscription-approval/pending`);
+    const res = await authFetch(`${API_BASE_URL}/subscription-approval/pending`);
     if (!res.ok) throw new Error('Failed to fetch pending approvals');
     return res.json();
 }
 
 export async function fetchApprovalHistory(): Promise<ApprovalHistoryItem[]> {
-    const res = await fetch(`${API_BASE_URL}/subscription-approval/history`);
+    const res = await authFetch(`${API_BASE_URL}/subscription-approval/history`);
     if (!res.ok) throw new Error('Failed to fetch approval history');
     return res.json();
 }
 
 export async function submitApproval(payload: ApprovalPayload): Promise<any> {
-    const res = await fetch(`${API_BASE_URL}/subscription-approval/submit`, {
+    const res = await authFetch(`${API_BASE_URL}/subscription-approval/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -148,23 +176,29 @@ export interface PaymentPayload {
     startDate: string;
     endDate: string;
     insuranceDocument?: string;
+    reason?: string;
     planned_1?: string;
+    companyName?: string;
+    subscriberName?: string;
+    subscriptionName?: string;
+    frequency?: string;
+    purpose?: string;
 }
 
 export async function fetchPendingPayments(): Promise<PendingPaymentItem[]> {
-    const res = await fetch(`${API_BASE_URL}/subscription-payment/pending`);
+    const res = await authFetch(`${API_BASE_URL}/subscription-payment/pending`);
     if (!res.ok) throw new Error('Failed to fetch pending payments');
     return res.json();
 }
 
 export async function fetchPaymentHistory(): Promise<PaymentHistoryItem[]> {
-    const res = await fetch(`${API_BASE_URL}/subscription-payment/history`);
+    const res = await authFetch(`${API_BASE_URL}/subscription-payment/history`);
     if (!res.ok) throw new Error('Failed to fetch payment history');
     return res.json();
 }
 
 export async function submitPayment(payload: PaymentPayload): Promise<any> {
-    const res = await fetch(`${API_BASE_URL}/subscription-payment/submit`, {
+    const res = await authFetch(`${API_BASE_URL}/subscription-payment/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -185,6 +219,7 @@ export interface PendingRenewalItem {
     frequency: string;
     end_date: string;
     planned_1: string | null;
+    reason_for_renewal: string | null;
 }
 
 export interface RenewalHistoryItem {
@@ -202,22 +237,27 @@ export interface RenewalPayload {
     renewal_status: 'Approved' | 'Rejected';
     approved_by: string;
     price: string;
+    company_name?: string;
+    subscriber_name?: string;
+    subscription_name?: string;
+    frequency?: string;
+    end_date?: string;
 }
 
 export async function fetchPendingRenewals(): Promise<PendingRenewalItem[]> {
-    const res = await fetch(`${API_BASE_URL}/subscription-renewal/pending`);
+    const res = await authFetch(`${API_BASE_URL}/subscription-renewal/pending`);
     if (!res.ok) throw new Error('Failed to fetch pending renewals');
     return res.json();
 }
 
 export async function fetchRenewalHistory(): Promise<RenewalHistoryItem[]> {
-    const res = await fetch(`${API_BASE_URL}/subscription-renewal/history`);
+    const res = await authFetch(`${API_BASE_URL}/subscription-renewal/history`);
     if (!res.ok) throw new Error('Failed to fetch renewal history');
     return res.json();
 }
 
 export async function submitRenewal(payload: RenewalPayload): Promise<any> {
-    const res = await fetch(`${API_BASE_URL}/subscription-renewal/submit`, {
+    const res = await authFetch(`${API_BASE_URL}/subscription-renewal/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

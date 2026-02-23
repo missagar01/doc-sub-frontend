@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import useDataStore, { RenewalItem } from '../../store/dataStore';
 import useAuthStore from '../../store/authStore';
 import useHeaderStore from '../../store/headerStore';
-import { Search, FileText, X, Check, Clock, AlertTriangle, Calendar, ExternalLink, Upload, Download, RotateCcw, RefreshCw } from 'lucide-react';
+import { Search, X, Check, Upload, Download, Save, Edit2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
 import { fetchDocumentsNeedingRenewal, mapBackendToFrontend, BackendDocument } from '../../utils/documentApi';
@@ -30,7 +30,7 @@ const DocumentRenewal = () => {
 
     // State for documents from backend
     const [documents, setDocuments] = useState<DocumentItem[]>([]);
-    const [loading, setLoading] = useState(true);
+
 
     useEffect(() => {
         setTitle('Document Renewal');
@@ -57,15 +57,29 @@ const DocumentRenewal = () => {
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Modal State
-    const [isRenewalModalOpen, setIsRenewalModalOpen] = useState(false);
-    const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
-
-    // Form State
-    const [againRenewal, setAgainRenewal] = useState(true);
-    const [nextRenewalDate, setNextRenewalDate] = useState('');
-    const [newFileName, setNewFileName] = useState('');
-    const [newFileContent, setNewFileContent] = useState<string>('');
+    // Inline Editing State
+    const [editingDocId, setEditingDocId] = useState<string | null>(null);
+    const [editFormData, setEditFormData] = useState<{
+        documentName: string;
+        documentType: string;
+        category: string;
+        companyName: string;
+        date: string;
+        nextRenewalDate: string;
+        newFileName: string;
+        newFileContent: string;
+        againRenewal: boolean;
+    }>({
+        nextRenewalDate: '',
+        newFileName: '',
+        newFileContent: '',
+        againRenewal: true,
+        documentName: '',
+        documentType: '',
+        category: '',
+        companyName: '',
+        date: ''
+    });
 
     // Filter Pending Documents by search term and Role
     const pendingDocuments = documents.filter(doc => {
@@ -94,27 +108,47 @@ const DocumentRenewal = () => {
         );
     });
 
-    const handleOpenRenewal = (doc: DocumentItem) => {
-        setSelectedDoc(doc);
-        setAgainRenewal(true);
-        setNextRenewalDate('');
-        setNewFileName('');
-        setNewFileContent('');
-        setIsRenewalModalOpen(true);
+    const handleEditRenewal = (doc: DocumentItem) => {
+        setEditingDocId(doc.id);
+        setEditFormData({
+            documentName: doc.documentName,
+            documentType: doc.documentType,
+            category: doc.category,
+            companyName: doc.companyName,
+            date: doc.date,
+            nextRenewalDate: '',
+            newFileName: '',
+            newFileContent: '',
+            againRenewal: true
+        });
     };
 
-    const handleCloseRenewal = () => {
-        setIsRenewalModalOpen(false);
-        setSelectedDoc(null);
+    const handleCancelEdit = () => {
+        setEditingDocId(null);
+        setEditFormData({
+            documentName: '',
+            documentType: '',
+            category: '',
+            companyName: '',
+            date: '',
+            nextRenewalDate: '',
+            newFileName: '',
+            newFileContent: '',
+            againRenewal: true
+        });
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setNewFileName(file.name);
+            const fileName = file.name;
             const reader = new FileReader();
             reader.onloadend = () => {
-                setNewFileContent(reader.result as string);
+                setEditFormData(prev => ({
+                    ...prev,
+                    newFileName: fileName,
+                    newFileContent: reader.result as string
+                }));
             };
             reader.readAsDataURL(file);
         }
@@ -141,11 +175,8 @@ const DocumentRenewal = () => {
         document.body.removeChild(link);
     };
 
-    const handleSaveRenewal = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedDoc) return;
-
-        if (againRenewal && !nextRenewalDate) {
+    const handleSaveRenewalInline = async (doc: DocumentItem) => {
+        if (editFormData.againRenewal && !editFormData.nextRenewalDate) {
             toast.error("Please select Next Renewal Date");
             return;
         }
@@ -157,43 +188,59 @@ const DocumentRenewal = () => {
             // 1. Create History Record (local for now)
             const historyItem: RenewalItem = {
                 id: Math.random().toString(36).substr(2, 9),
-                documentId: selectedDoc.id,
-                sn: selectedDoc.sn,
-                documentName: selectedDoc.documentName,
-                documentType: selectedDoc.documentType,
-                category: selectedDoc.category,
-                companyName: selectedDoc.companyName,
-                entryDate: selectedDoc.date, // Original Entry Date
-                oldRenewalDate: selectedDoc.renewalDate || '-',
-                oldFile: selectedDoc.file,
-                oldFileContent: selectedDoc.fileContent,
-                renewalStatus: againRenewal ? 'Yes' : 'No',
-                nextRenewalDate: againRenewal ? nextRenewalDate : null,
-                newFile: newFileName || null,
-                newFileContent: newFileContent || undefined
+                documentId: doc.id,
+                sn: doc.sn,
+                documentName: doc.documentName,
+                documentType: doc.documentType,
+                category: doc.category,
+                companyName: doc.companyName,
+                entryDate: doc.date, // Original Entry Date
+                oldRenewalDate: doc.renewalDate || '-',
+                oldFile: doc.file,
+                oldFileContent: doc.fileContent,
+                renewalStatus: editFormData.againRenewal ? 'Yes' : 'No',
+                nextRenewalDate: editFormData.againRenewal ? editFormData.nextRenewalDate : null,
+                newFile: editFormData.newFileName || null,
+                newFileContent: editFormData.newFileContent || undefined
             };
 
             addRenewalHistory(historyItem);
 
             // 2. Update Document in backend
-            const updates: { need_renewal?: 'yes' | 'no'; renewal_date?: string; image?: string } = {};
-            if (againRenewal) {
-                updates.renewal_date = nextRenewalDate;
-                if (newFileContent) {
-                    updates.image = newFileContent;
+            const updates: { 
+                need_renewal?: 'yes' | 'no'; 
+                renewal_date?: string; 
+                image?: string;
+                document_name?: string;
+                document_type?: string;
+                category?: string;
+                company_name?: string;
+                date?: string;
+            } = {
+                document_name: editFormData.documentName,
+                document_type: editFormData.documentType,
+                category: editFormData.category,
+                company_name: editFormData.companyName,
+                date: editFormData.date,
+            };
+            
+            if (editFormData.againRenewal) {
+                updates.renewal_date = editFormData.nextRenewalDate;
+                if (editFormData.newFileContent) {
+                    updates.image = editFormData.newFileContent;
                 }
             } else {
                 updates.need_renewal = 'no';
                 updates.renewal_date = undefined;
             }
 
-            await updateDocument(parseInt(selectedDoc.id), updates);
+            await updateDocument(parseInt(doc.id), updates);
 
             // 3. Reload data
             loadRenewalDocuments();
 
             toast.success("Renewal processed successfully");
-            handleCloseRenewal();
+            handleCancelEdit();
         } catch (err) {
             console.error('Failed to process renewal:', err);
             toast.error("Failed to process renewal");
@@ -268,32 +315,127 @@ const DocumentRenewal = () => {
                             <tbody className="divide-y divide-gray-50 text-sm">
                                 {pendingDocuments.length > 0 ? pendingDocuments.map((doc) => (
                                     <tr key={doc.id} className="hover:bg-gray-50/80 transition-colors">
-                                        <td className="p-3 text-center">
-                                            <button
-                                                onClick={() => handleOpenRenewal(doc)}
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
-                                            >
-                                                <RotateCcw size={14} />
-                                                Renewal
-                                            </button>
+                                        <td className="p-3 text-center flex justify-center items-center gap-2">
+                                            {editingDocId === doc.id ? (
+                                                <>
+                                                    <button onClick={() => handleSaveRenewalInline(doc)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Save">
+                                                        <Save size={16} />
+                                                    </button>
+                                                    <button onClick={handleCancelEdit} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" title="Cancel">
+                                                        <X size={16} />
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleEditRenewal(doc)}
+                                                    className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5 w-full"
+                                                    title="Edit Renewal"
+                                                >
+                                                    <Edit2 size={14} />
+                                                    Edit / Renew
+                                                </button>
+                                            )}
                                         </td>
                                         <td className="p-3 font-bold font-mono text-xs text-gray-700">{doc.sn}</td>
-                                        <td className="p-3 font-medium text-gray-900">{doc.documentName}</td>
-                                        <td className="p-3 text-gray-600">{doc.documentType}</td>
                                         <td className="p-3">
-                                            <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
-                                                {doc.category}
-                                            </span>
+                                            {editingDocId === doc.id ? (
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-medium text-gray-900" 
+                                                    value={editFormData.documentName} 
+                                                    onChange={e => setEditFormData({...editFormData, documentName: e.target.value})} 
+                                                />
+                                            ) : (
+                                                <span className="font-medium text-gray-900">{doc.documentName}</span>
+                                            )}
                                         </td>
-                                        <td className="p-3 text-gray-900">{doc.companyName}</td>
-                                        <td className="p-3 text-gray-500 font-mono text-xs">{formatDate(doc.date)}</td>
+                                        <td className="p-3">
+                                            {editingDocId === doc.id ? (
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-600" 
+                                                    value={editFormData.documentType} 
+                                                    onChange={e => setEditFormData({...editFormData, documentType: e.target.value})} 
+                                                />
+                                            ) : (
+                                                <span className="text-gray-600">{doc.documentType}</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3">
+                                            {editingDocId === doc.id ? (
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-indigo-700 bg-indigo-50 font-medium" 
+                                                    value={editFormData.category} 
+                                                    onChange={e => setEditFormData({...editFormData, category: e.target.value})} 
+                                                />
+                                            ) : (
+                                                <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
+                                                    {doc.category}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="p-3">
+                                            {editingDocId === doc.id ? (
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900" 
+                                                    value={editFormData.companyName} 
+                                                    onChange={e => setEditFormData({...editFormData, companyName: e.target.value})} 
+                                                />
+                                            ) : (
+                                                <span className="text-gray-900">{doc.companyName}</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3">
+                                            {editingDocId === doc.id ? (
+                                                <input 
+                                                    type="date" 
+                                                    className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-500 font-mono" 
+                                                    value={editFormData.date} 
+                                                    onChange={e => setEditFormData({...editFormData, date: e.target.value})} 
+                                                />
+                                            ) : (
+                                                <span className="text-gray-500 font-mono text-xs">{formatDate(doc.date)}</span>
+                                            )}
+                                        </td>
                                         <td className="p-3 text-center">
-                                            <span className="inline-flex items-center justify-center px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded text-xs font-medium">
-                                                {doc.renewalDate ? formatDate(doc.renewalDate) : 'Pending'}
-                                            </span>
+                                            {editingDocId === doc.id ? (
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="flex items-center gap-2 text-[10px] text-gray-600">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={editFormData.againRenewal} 
+                                                            onChange={e => setEditFormData({...editFormData, againRenewal: e.target.checked})} 
+                                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                                                        /> 
+                                                        Again?
+                                                    </label>
+                                                    {editFormData.againRenewal && (
+                                                        <input 
+                                                            type="date" 
+                                                            className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none" 
+                                                            value={editFormData.nextRenewalDate} 
+                                                            onChange={e => setEditFormData({...editFormData, nextRenewalDate: e.target.value})} 
+                                                        />
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className="inline-flex items-center justify-center px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded text-xs font-medium">
+                                                    {doc.renewalDate ? formatDate(doc.renewalDate) : 'Pending'}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="p-3">
-                                            {doc.file ? (
+                                            {editingDocId === doc.id && editFormData.againRenewal ? (
+                                                <div className="relative">
+                                                    <input type="file" id={`file-${doc.id}`} className="hidden" onChange={handleFileChange} />
+                                                    <label htmlFor={`file-${doc.id}`} className="flex items-center justify-center gap-1 w-full p-1 border border-dashed border-gray-300 rounded text-gray-600 cursor-pointer hover:bg-indigo-50 hover:text-indigo-600 transition-all text-[10px]">
+                                                        <Upload size={12} />
+                                                        <span className="truncate max-w-[80px]">{editFormData.newFileName || "Upload"}</span>
+                                                    </label>
+                                                </div>
+                                            ) : doc.file ? (
                                                 <div
                                                     onClick={() => handleDownload(doc.fileContent, doc.file)}
                                                     className="flex items-center gap-2 text-indigo-600 text-xs cursor-pointer hover:underline"
@@ -415,20 +557,76 @@ const DocumentRenewal = () => {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <span className="text-xs font-mono font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded">{doc.sn}</span>
-                                    <h3 className="font-semibold text-gray-900 mt-1">{doc.companyName}</h3>
-                                    <p className="text-xs text-gray-500">{doc.documentType}</p>
+                                    {editingDocId === doc.id ? (
+                                        <input
+                                            type="text"
+                                            className="w-full mt-2 p-1.5 border border-gray-300 rounded text-sm font-semibold text-gray-900 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                            value={editFormData.companyName}
+                                            onChange={e => setEditFormData({...editFormData, companyName: e.target.value})}
+                                        />
+                                    ) : (
+                                        <h3 className="font-semibold text-gray-900 mt-1">{doc.companyName}</h3>
+                                    )}
+                                    
+                                    {editingDocId === doc.id ? (
+                                        <input
+                                            type="text"
+                                            className="w-full mt-1 p-1.5 border border-gray-300 rounded text-xs text-gray-600 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                            value={editFormData.documentType}
+                                            onChange={e => setEditFormData({...editFormData, documentType: e.target.value})}
+                                        />
+                                    ) : (
+                                        <p className="text-xs text-gray-500 mt-1">{doc.documentType}</p>
+                                    )}
                                 </div>
-                                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-medium">
-                                    {doc.category}
-                                </span>
+                                {editingDocId === doc.id ? (
+                                    <input
+                                        type="text"
+                                        className="w-24 p-1 border border-gray-300 rounded text-[10px] font-medium text-indigo-700 bg-indigo-50 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        value={editFormData.category}
+                                        onChange={e => setEditFormData({...editFormData, category: e.target.value})}
+                                    />
+                                ) : (
+                                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[10px] font-medium mt-1">
+                                        {doc.category}
+                                    </span>
+                                )}
                             </div>
 
                             <div className="pt-2 border-t border-gray-50">
-                                <p className="text-sm font-medium text-gray-700 mb-2">{doc.documentName}</p>
+                                {editingDocId === doc.id ? (
+                                    <input
+                                        type="text"
+                                        className="w-full mb-2 p-1.5 border border-gray-300 rounded text-sm font-medium text-gray-700 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        value={editFormData.documentName}
+                                        onChange={e => setEditFormData({...editFormData, documentName: e.target.value})}
+                                    />
+                                ) : (
+                                    <p className="text-sm font-medium text-gray-700 mb-2">{doc.documentName}</p>
+                                )}
                                 <div className="flex justify-between items-center text-xs text-gray-500">
-                                    <span>Entry: {doc.date}</span>
+                                    <span className="flex items-center gap-1">Entry: 
+                                        {editingDocId === doc.id ? (
+                                            <input
+                                                type="date"
+                                                className="w-[110px] p-0.5 border border-gray-300 rounded text-[10px] focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                value={editFormData.date}
+                                                onChange={e => setEditFormData({...editFormData, date: e.target.value})}
+                                            />
+                                        ) : (
+                                            formatDate(doc.date)
+                                        )}
+                                    </span>
                                     <span className="flex items-center gap-1 font-medium text-amber-600 bg-amber-50 px-1.5 rounded">
-                                        Renewal: {doc.renewalDate || 'Pending'}
+                                        Renewal: 
+                                        {editingDocId === doc.id ? (
+                                            <input 
+                                                type="date" 
+                                                className="w-[110px] p-0.5 border border-amber-300 rounded text-[10px] focus:ring-1 focus:ring-amber-500 outline-none ml-1 bg-white" 
+                                                value={editFormData.nextRenewalDate} 
+                                                onChange={e => setEditFormData({...editFormData, nextRenewalDate: e.target.value})} 
+                                            />
+                                        ) : doc.renewalDate || 'Pending'}
                                     </span>
                                 </div>
                             </div>
@@ -445,13 +643,24 @@ const DocumentRenewal = () => {
                                 ) : (
                                     <span className="text-gray-400 text-xs italic">No file</span>
                                 )}
-                                <button
-                                    onClick={() => handleOpenRenewal(doc)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg shadow-sm"
-                                >
-                                    <RotateCcw size={14} />
-                                    Renewal
-                                </button>
+                                {editingDocId === doc.id ? (
+                                    <>
+                                        <button onClick={() => handleSaveRenewalInline(doc)} className="p-1.5 text-green-600 bg-green-50 rounded-lg" title="Save">
+                                            <Save size={16} />
+                                        </button>
+                                        <button onClick={handleCancelEdit} className="p-1.5 text-gray-500 bg-gray-100 rounded-lg" title="Cancel">
+                                            <X size={16} />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        onClick={() => handleEditRenewal(doc)}
+                                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 text-xs font-bold rounded-lg shadow-sm flex items-center gap-1"
+                                        title="Edit Renewal"
+                                    >
+                                        <Edit2 size={14} /> Edit / Renew
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )) : (
@@ -525,115 +734,7 @@ const DocumentRenewal = () => {
                 )}
             </div>
 
-            {/* Renewal Modal */}
-            {isRenewalModalOpen && selectedDoc && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
-                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <div>
-                                <h3 className="text-base font-bold text-gray-800">Process Renewal</h3>
-                                <p className="text-[10px] text-gray-500 mt-0.5">Update renewal status for this document</p>
-                            </div>
-                            <button onClick={handleCloseRenewal} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSaveRenewal} className="p-4 space-y-4">
-                            {/* Pre-filled Info Grid */}
-                            <div className="grid grid-cols-2 gap-3 text-xs bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
-                                <div className="col-span-2">
-                                    <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Document</label>
-                                    <div className="font-medium text-gray-900">{selectedDoc.documentName}</div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Serial No</label>
-                                    <div className="font-mono text-gray-700">{selectedDoc.sn}</div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Name</label>
-                                    <div className="text-gray-700">{selectedDoc.companyName}</div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Category</label>
-                                    <div className="text-gray-700">{selectedDoc.category}</div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Current Renewal</label>
-                                    <div className="text-amber-600 font-medium">{selectedDoc.renewalDate || 'N/A'}</div>
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Current File</label>
-                                    <div className="text-gray-600 truncate">{selectedDoc.file || 'No file attached'}</div>
-                                </div>
-                            </div>
-
-                            {/* Inputs */}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between p-2.5 border border-gray-200 rounded-xl hover:border-indigo-200 transition-colors cursor-pointer" onClick={() => setAgainRenewal(!againRenewal)}>
-                                    <span className="font-medium text-sm text-gray-700">Again Renewal?</span>
-                                    <div className={`w-10 h-5 rounded-full p-0.5 transition-colors duration-300 ${againRenewal ? 'bg-indigo-600' : 'bg-gray-300'}`}>
-                                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-300 ${againRenewal ? 'translate-x-5' : 'translate-x-0'}`} />
-                                    </div>
-                                </div>
-
-                                {againRenewal && (
-                                    <div className="space-y-3 animate-fade-in-up">
-                                        <div>
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1">Next Renewal Date</label>
-                                            <div className="relative">
-                                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                                                <input
-                                                    type="date"
-                                                    required
-                                                    className="w-full pl-9 p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                    value={nextRenewalDate}
-                                                    onChange={e => setNextRenewalDate(e.target.value)}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1">New Document File</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="file"
-                                                    id="renewal-file"
-                                                    className="hidden"
-                                                    onChange={handleFileChange}
-                                                />
-                                                <label
-                                                    htmlFor="renewal-file"
-                                                    className="flex items-center justify-center gap-2 w-full p-2.5 border border-dashed border-gray-300 rounded-xl text-gray-600 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all"
-                                                >
-                                                    <Upload size={16} />
-                                                    <span className="text-xs font-medium truncate max-w-[180px]">{newFileName || "Upload New Version"}</span>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={handleCloseRenewal}
-                                    className="flex-1 py-2 px-4 rounded-xl border border-gray-200 text-gray-700 font-medium text-sm hover:bg-gray-50 transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="flex-1 py-2 px-4 rounded-xl bg-indigo-600 text-white font-medium text-sm hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200"
-                                >
-                                    Save Record
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {/* Removed the monolithic Document Renewal Modal handling */ }
         </div>
     );
 };

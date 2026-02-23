@@ -21,11 +21,12 @@ interface AuthState {
   token: string | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  fetchMe: () => Promise<void>;
 }
 
 const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       isAuthenticated: false,
       currentUser: null,
       token: null,
@@ -44,15 +45,10 @@ const useAuthStore = create<AuthState>()(
 
           const data = await res.json();
 
-          // Map systemAccess from backend to permissions for frontend compatibility
+          // Map systemAccess directly from backend
           const permissions = data.user.systemAccess?.map((s: string) =>
             s.charAt(0).toUpperCase() + s.slice(1)
-          ) || ['Dashboard', 'Document', 'Subscription'];
-
-          // Add common pages if user has access
-          if (data.user.role === 'admin') {
-            permissions.push('Master', 'Settings', 'Loan', 'Calendar');
-          }
+          ) || [];
 
           const user: User = {
             id: String(data.user.id),
@@ -62,8 +58,8 @@ const useAuthStore = create<AuthState>()(
             email: data.user.email,
             department: data.user.department,
             permissions: Array.from(new Set<string>(permissions)),
-            systemAccess: data.user.systemAccess,
-            pageAccess: data.user.pageAccess,
+            systemAccess: data.user.systemAccess || [],
+            pageAccess: data.user.pageAccess || [],
           };
 
           set({
@@ -76,6 +72,39 @@ const useAuthStore = create<AuthState>()(
         } catch (err) {
           console.error('Login error:', err);
           return false;
+        }
+      },
+
+      fetchMe: async () => {
+        try {
+          const token = get().token;
+          if (!token) return;
+          const res = await fetch(`${API_BASE_URL}/auth/me`, {
+             headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+             const data = await res.json();
+             const currentUser = get().currentUser;
+             if (currentUser && data.permissions) {
+                const systemAccess = data.permissions.systems || [];
+                const pageAccess = data.permissions.pages || [];
+                
+                const permissions = systemAccess.map((s: string) =>
+                  s.charAt(0).toUpperCase() + s.slice(1)
+                ) || [];
+
+                set({
+                  currentUser: {
+                    ...currentUser,
+                    systemAccess,
+                    pageAccess,
+                    permissions: Array.from(new Set<string>(permissions))
+                  }
+                });
+             }
+          }
+        } catch (err) {
+          console.error('Failed to fetch me:', err);
         }
       },
 

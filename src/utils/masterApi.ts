@@ -1,6 +1,6 @@
 // Master API Service - connects frontend to backend master endpoints
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050/api';
+import { authFetch, API_BASE_URL } from './apiClient';
 
 // Master record type
 export interface MasterRecord {
@@ -22,7 +22,7 @@ export interface MasterItem {
 
 // Get all master records
 export async function fetchAllMasterData(): Promise<MasterRecord[]> {
-    const res = await fetch(`${API_BASE_URL}/master`);
+    const res = await authFetch(`${API_BASE_URL}/master`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch master data');
@@ -34,7 +34,7 @@ export async function fetchAllMasterData(): Promise<MasterRecord[]> {
 
 // Get company names for dropdown
 export async function fetchCompanyNames(): Promise<string[]> {
-    const res = await fetch(`${API_BASE_URL}/master/company-names`);
+    const res = await authFetch(`${API_BASE_URL}/master/company-names`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch company names');
@@ -46,7 +46,7 @@ export async function fetchCompanyNames(): Promise<string[]> {
 
 // Get document types for dropdown
 export async function fetchDocumentTypes(): Promise<string[]> {
-    const res = await fetch(`${API_BASE_URL}/master/document-types`);
+    const res = await authFetch(`${API_BASE_URL}/master/document-types`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch document types');
@@ -58,7 +58,7 @@ export async function fetchDocumentTypes(): Promise<string[]> {
 
 // Get categories for dropdown
 export async function fetchCategories(): Promise<string[]> {
-    const res = await fetch(`${API_BASE_URL}/master/categories`);
+    const res = await authFetch(`${API_BASE_URL}/master/categories`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch categories');
@@ -75,7 +75,7 @@ export async function createMasterRecord(data: {
     category: string;
     renewal_filter?: boolean;
 }): Promise<MasterRecord> {
-    const res = await fetch(`${API_BASE_URL}/master`, {
+    const res = await authFetch(`${API_BASE_URL}/master`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -97,7 +97,7 @@ export async function updateMasterRecord(id: number, data: Partial<{
     category: string;
     renewal_filter: boolean;
 }>): Promise<MasterRecord> {
-    const res = await fetch(`${API_BASE_URL}/master/${id}`, {
+    const res = await authFetch(`${API_BASE_URL}/master/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -113,7 +113,7 @@ export async function updateMasterRecord(id: number, data: Partial<{
 
 // Delete master record
 export async function deleteMasterRecord(id: number): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/master/${id}`, {
+    const res = await authFetch(`${API_BASE_URL}/master/${id}`, {
         method: 'DELETE'
     });
 

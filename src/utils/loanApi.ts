@@ -1,6 +1,6 @@
 // Loan API Service - connects frontend to backend loan endpoints
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { authFetch, API_BASE_URL } from './apiClient';
 
 // ==================== TYPES ====================
 
@@ -58,7 +58,7 @@ export async function createLoan(loanData: {
     upload_document?: string;
     remarks?: string;
 }): Promise<Loan> {
-    const res = await fetch(`${API_BASE_URL}/loans`, {
+    const res = await authFetch(`${API_BASE_URL}/loans`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loanData)
@@ -75,7 +75,7 @@ export async function createLoan(loanData: {
 
 // Get all loans
 export async function fetchAllLoans(): Promise<Loan[]> {
-    const res = await fetch(`${API_BASE_URL}/loans`);
+    const res = await authFetch(`${API_BASE_URL}/loans`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch loans');
@@ -87,7 +87,7 @@ export async function fetchAllLoans(): Promise<Loan[]> {
 
 // Get loans eligible for foreclosure (end date <= today)
 export async function fetchForeclosureEligibleLoans(): Promise<Loan[]> {
-    const res = await fetch(`${API_BASE_URL}/loans/foreclosure-eligible`);
+    const res = await authFetch(`${API_BASE_URL}/loans/foreclosure-eligible`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch foreclosure eligible loans');
@@ -99,7 +99,7 @@ export async function fetchForeclosureEligibleLoans(): Promise<Loan[]> {
 
 // Get loan by ID
 export async function fetchLoanById(id: number): Promise<Loan> {
-    const res = await fetch(`${API_BASE_URL}/loans/${id}`);
+    const res = await authFetch(`${API_BASE_URL}/loans/${id}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch loan');
@@ -111,7 +111,7 @@ export async function fetchLoanById(id: number): Promise<Loan> {
 
 // Update loan
 export async function updateLoan(id: number, loanData: Partial<Loan>): Promise<Loan> {
-    const res = await fetch(`${API_BASE_URL}/loans/${id}`, {
+    const res = await authFetch(`${API_BASE_URL}/loans/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loanData)
@@ -127,7 +127,7 @@ export async function updateLoan(id: number, loanData: Partial<Loan>): Promise<L
 
 // Delete loan
 export async function deleteLoan(id: number): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/loans/${id}`, {
+    const res = await authFetch(`${API_BASE_URL}/loans/${id}`, {
         method: 'DELETE'
     });
 
@@ -150,7 +150,7 @@ export async function createForeclosureRequest(requestData: {
     request_date?: string;
     requester_name: string;
 }): Promise<ForeclosureRequest> {
-    const res = await fetch(`${API_BASE_URL}/loans/foreclosure/request`, {
+    const res = await authFetch(`${API_BASE_URL}/loans/foreclosure/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData)
@@ -167,7 +167,7 @@ export async function createForeclosureRequest(requestData: {
 
 // Get foreclosure history
 export async function fetchForeclosureHistory(): Promise<ForeclosureRequest[]> {
-    const res = await fetch(`${API_BASE_URL}/loans/foreclosure/history`);
+    const res = await authFetch(`${API_BASE_URL}/loans/foreclosure/history`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch foreclosure history');
@@ -179,7 +179,7 @@ export async function fetchForeclosureHistory(): Promise<ForeclosureRequest[]> {
 
 // Get foreclosure requests pending NOC
 export async function fetchForeclosuresPendingNOC(): Promise<ForeclosureRequest[]> {
-    const res = await fetch(`${API_BASE_URL}/loans/foreclosure/pending-noc`);
+    const res = await authFetch(`${API_BASE_URL}/loans/foreclosure/pending-noc`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch pending NOC requests');
@@ -201,7 +201,7 @@ export async function createOrUpdateNOC(nocData: {
     closure_request_date: string;
     collect_noc: boolean;
 }): Promise<NOCRecord> {
-    const res = await fetch(`${API_BASE_URL}/loans/noc`, {
+    const res = await authFetch(`${API_BASE_URL}/loans/noc`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(nocData)
@@ -218,7 +218,7 @@ export async function createOrUpdateNOC(nocData: {
 
 // Get pending NOC collections
 export async function fetchPendingNOCCollections(): Promise<NOCRecord[]> {
-    const res = await fetch(`${API_BASE_URL}/loans/noc/pending`);
+    const res = await authFetch(`${API_BASE_URL}/loans/noc/pending`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch pending NOC collections');
@@ -230,7 +230,7 @@ export async function fetchPendingNOCCollections(): Promise<NOCRecord[]> {
 
 // Get NOC history
 export async function fetchNOCHistory(): Promise<NOCRecord[]> {
-    const res = await fetch(`${API_BASE_URL}/loans/noc/history`);
+    const res = await authFetch(`${API_BASE_URL}/loans/noc/history`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch NOC history');
@@ -242,7 +242,7 @@ export async function fetchNOCHistory(): Promise<NOCRecord[]> {
 
 // Get all NOC records
 export async function fetchAllNOCRecords(): Promise<NOCRecord[]> {
-    const res = await fetch(`${API_BASE_URL}/loans/noc/all`);
+    const res = await authFetch(`${API_BASE_URL}/loans/noc/all`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch NOC records');
