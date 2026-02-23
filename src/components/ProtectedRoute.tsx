@@ -4,7 +4,7 @@ import { getDbPageString, getPathFromDbString } from '../utils/permissions';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'user')[];
+  allowedRoles?: ('admin' | 'user' | 'employee')[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 

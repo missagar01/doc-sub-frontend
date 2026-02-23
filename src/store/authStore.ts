@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export interface User {
   id: string;
@@ -40,6 +40,12 @@ const useAuthStore = create<AuthState>()(
           });
 
           if (!res.ok) {
+            try {
+              const errorData = await res.json();
+              console.error("DEBUG LOGIN ERROR:", errorData);
+            } catch (jsonErr) {
+              console.error("Login failed (no error message from server):", res.status);
+            }
             return false;
           }
 
@@ -79,7 +85,7 @@ const useAuthStore = create<AuthState>()(
         try {
           const token = get().token;
           if (!token) return;
-          const res = await fetch(`${API_BASE_URL}/auth/me`, {
+          const res = await fetch(`${API_BASE_URL}/users/auth/me`, {
              headers: { 'Authorization': `Bearer ${token}` }
           });
           if (res.ok) {

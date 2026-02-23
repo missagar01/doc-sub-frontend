@@ -38,15 +38,12 @@ const DocumentRenewal = () => {
 
     // Fetch documents needing renewal from backend
     const loadRenewalDocuments = useCallback(async () => {
-        setLoading(true);
         try {
             const data = await fetchDocumentsNeedingRenewal();
             setDocuments(data.map((doc: BackendDocument) => mapBackendToFrontend(doc)));
         } catch (err) {
             console.error('Failed to load renewal documents:', err);
             toast.error('Failed to load renewal documents');
-        } finally {
-            setLoading(false);
         }
     }, []);
 
