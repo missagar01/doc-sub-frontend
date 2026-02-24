@@ -480,53 +480,75 @@ const SubscriptionRenewal = () => {
                     {filteredPending.length > 0 ? (
                         filteredPending.map((sub) => (
                             <div key={sub.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex gap-3 items-start">
-                                        <div className="h-10 w-10 flex items-center justify-center bg-amber-50 text-amber-600 rounded-lg shrink-0 mt-0.5">
-                                            <RotateCcw size={20} />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-[10px] font-mono font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{sub.sn}</span>
-                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border bg-amber-50 text-amber-700 border-amber-100">
-                                                    Expiring
-                                                </span>
+                                {editingSubId === sub.id ? (
+                                    <>
+                                        <div className="space-y-2">
+                                            <span className="text-[10px] font-mono font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{sub.sn}</span>
+                                            <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Company</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.companyName} onChange={e => setEditFormData({...editFormData, companyName: e.target.value})} /></div>
+                                            <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Subscriber</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.subscriberName} onChange={e => setEditFormData({...editFormData, subscriberName: e.target.value})} /></div>
+                                            <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Subscription</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.subscriptionName} onChange={e => setEditFormData({...editFormData, subscriptionName: e.target.value})} /></div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Price</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.price} onChange={e => setEditFormData({...editFormData, price: e.target.value})} /></div>
+                                                <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Frequency</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.frequency} onChange={e => setEditFormData({...editFormData, frequency: e.target.value})} /></div>
                                             </div>
-                                            <h3 className="text-sm font-bold text-gray-900 leading-tight">{sub.subscriptionName}</h3>
-                                            <p className="text-xs text-gray-500 mt-0.5 font-medium">{sub.companyName}</p>
+                                            <div><label className="text-[10px] text-gray-400 uppercase font-semibold">End Date</label><input type="date" className="w-full p-1.5 border border-amber-300 rounded text-xs mt-0.5" value={editFormData.endDate} onChange={e => setEditFormData({...editFormData, endDate: e.target.value})} /></div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handleAction(sub)}
-                                            className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-indigo-200"
-                                        >
-                                            Action
-                                        </button>
-                                        <button
-                                            onClick={() => handleStartEdit(sub)}
-                                            className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 text-xs font-bold rounded-lg flex items-center gap-1"
-                                        >
-                                            <Edit2 size={14} /> Edit
-                                        </button>
-                                    </div>
-                                </div>
+                                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                                            <button onClick={handleCancelEdit} className="px-3 py-1.5 text-gray-500 text-xs font-bold rounded-lg border border-gray-200">Cancel</button>
+                                            <button onClick={() => handleSaveEdit(sub)} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg">Save</button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex gap-3 items-start">
+                                                <div className="h-10 w-10 flex items-center justify-center bg-amber-50 text-amber-600 rounded-lg shrink-0 mt-0.5">
+                                                    <RotateCcw size={20} />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-[10px] font-mono font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{sub.sn}</span>
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border bg-amber-50 text-amber-700 border-amber-100">
+                                                            Expiring
+                                                        </span>
+                                                    </div>
+                                                    <h3 className="text-sm font-bold text-gray-900 leading-tight">{sub.subscriptionName}</h3>
+                                                    <p className="text-xs text-gray-500 mt-0.5 font-medium">{sub.companyName}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handleAction(sub)}
+                                                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-indigo-200"
+                                                >
+                                                    Action
+                                                </button>
+                                                <button
+                                                    onClick={() => handleStartEdit(sub)}
+                                                    className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 text-xs font-bold rounded-lg flex items-center gap-1"
+                                                >
+                                                    <Edit2 size={14} /> Edit
+                                                </button>
+                                            </div>
+                                        </div>
 
-                                <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs pt-3 border-t border-dashed border-gray-100">
-                                    <div>
-                                        <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Subscriber</span>
-                                        <span className="font-semibold text-gray-700">{sub.subscriberName}</span>
-                                    </div>
-                                    <div>
-                                        <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Price / Freq</span>
-                                        <span className="font-bold text-gray-900">{sub.price} <span className="text-gray-400 font-normal text-[10px]">/ {sub.frequency}</span></span>
-                                    </div>
-                                </div>
+                                        <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs pt-3 border-t border-dashed border-gray-100">
+                                            <div>
+                                                <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Subscriber</span>
+                                                <span className="font-semibold text-gray-700">{sub.subscriberName}</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Price / Freq</span>
+                                                <span className="font-bold text-gray-900">{sub.price} <span className="text-gray-400 font-normal text-[10px]">/ {sub.frequency}</span></span>
+                                            </div>
+                                        </div>
 
-                                <div className="bg-gray-50 rounded-lg p-3 text-[10px] border border-gray-100 text-center">
-                                    <span className="block text-gray-400 mb-0.5 uppercase tracking-wider font-semibold">End Date</span>
-                                    <span className="font-mono text-amber-600 font-bold">{formatDate(sub.endDate)}</span>
-                                </div>
+                                        <div className="bg-gray-50 rounded-lg p-3 text-[10px] border border-gray-100 text-center">
+                                            <span className="block text-gray-400 mb-0.5 uppercase tracking-wider font-semibold">End Date</span>
+                                            <span className="font-mono text-amber-600 font-bold">{formatDate(sub.endDate)}</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))
                     ) : (

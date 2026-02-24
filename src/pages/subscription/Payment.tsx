@@ -502,62 +502,83 @@ const SubscriptionPayment = () => {
                 <div className="md:hidden flex flex-col gap-4">
                     {filteredPending.map((item) => (
                         <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
-                            <div className="flex justify-between items-start">
-                                <div className="flex gap-3 items-start">
-                                    <div className="h-10 w-10 flex items-center justify-center bg-green-50 text-green-600 rounded-lg shrink-0 mt-0.5">
-                                        <CreditCard size={20} />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs font-mono font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{item.sn}</span>
+                            {editingSubId === item.id ? (
+                                <>
+                                    <div className="space-y-2">
+                                        <span className="text-xs font-mono font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{item.sn}</span>
+                                        <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Company</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.companyName} onChange={e => setEditFormData({...editFormData, companyName: e.target.value})} /></div>
+                                        <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Subscriber</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.subscriberName} onChange={e => setEditFormData({...editFormData, subscriberName: e.target.value})} /></div>
+                                        <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Subscription</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.subscriptionName} onChange={e => setEditFormData({...editFormData, subscriptionName: e.target.value})} /></div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Price</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.price} onChange={e => setEditFormData({...editFormData, price: e.target.value})} /></div>
+                                            <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Frequency</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.frequency} onChange={e => setEditFormData({...editFormData, frequency: e.target.value})} /></div>
                                         </div>
-                                        <h3 className="text-sm font-bold text-gray-900 leading-tight">{item.subscriptionName}</h3>
-                                        <p className="text-xs text-gray-500 mt-0.5 font-medium">{item.companyName}</p>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => handlePayClick(item)}
-                                        className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-indigo-200"
-                                    >
-                                        Action
-                                    </button>
-                                    <button
-                                        onClick={() => handleStartEdit(item)}
-                                        className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 text-xs font-bold rounded-lg flex items-center gap-1"
-                                    >
-                                        <Edit2 size={14} /> Edit
-                                    </button>
-                                </div>
-                            </div>
+                                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                                        <button onClick={handleCancelEdit} className="px-3 py-1.5 text-gray-500 text-xs font-bold rounded-lg border border-gray-200">Cancel</button>
+                                        <button onClick={() => handleSaveEdit(item)} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg">Save</button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex gap-3 items-start">
+                                            <div className="h-10 w-10 flex items-center justify-center bg-green-50 text-green-600 rounded-lg shrink-0 mt-0.5">
+                                                <CreditCard size={20} />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-xs font-mono font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{item.sn}</span>
+                                                </div>
+                                                <h3 className="text-sm font-bold text-gray-900 leading-tight">{item.subscriptionName}</h3>
+                                                <p className="text-xs text-gray-500 mt-0.5 font-medium">{item.companyName}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handlePayClick(item)}
+                                                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-indigo-200"
+                                            >
+                                                Action
+                                            </button>
+                                            <button
+                                                onClick={() => handleStartEdit(item)}
+                                                className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 text-xs font-bold rounded-lg flex items-center gap-1"
+                                            >
+                                                <Edit2 size={14} /> Edit
+                                            </button>
+                                        </div>
+                                    </div>
 
-                            <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs pt-3 border-t border-dashed border-gray-100">
-                                <div className="col-span-2">
-                                    <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Company / Subscription</span>
-                                    <div className="flex flex-col gap-0.5 mt-1">
-                                        <span className="font-semibold text-gray-700">{item.companyName}</span>
-                                        <span className="text-indigo-600 font-medium">{item.subscriptionName}</span>
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs pt-3 border-t border-dashed border-gray-100">
+                                        <div className="col-span-2">
+                                            <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Company / Subscription</span>
+                                            <div className="flex flex-col gap-0.5 mt-1">
+                                                <span className="font-semibold text-gray-700">{item.companyName}</span>
+                                                <span className="text-indigo-600 font-medium">{item.subscriptionName}</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Subscriber</span>
+                                            <span className="font-semibold text-gray-700">{item.subscriberName}</span>
+                                        </div>
+                                        <div>
+                                            <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Frequency</span>
+                                            <span className="font-semibold text-gray-700">{item.frequency}</span>
+                                        </div>
+                                        <div className="col-span-2 pt-2 border-t border-gray-50 flex justify-between">
+                                            <div>
+                                                <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Price</span>
+                                                <span className="font-bold text-gray-900">{item.price}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Approved On</span>
+                                                <span className="text-gray-500 font-mono">{formatDate(item.approvalDate)}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Subscriber</span>
-                                    <span className="font-semibold text-gray-700">{item.subscriberName}</span>
-                                </div>
-                                <div>
-                                    <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Frequency</span>
-                                    <span className="font-semibold text-gray-700">{item.frequency}</span>
-                                </div>
-                                <div className="col-span-2 pt-2 border-t border-gray-50 flex justify-between">
-                                    <div>
-                                        <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Price</span>
-                                        <span className="font-bold text-gray-900">{item.price}</span>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="block text-gray-400 mb-0.5 text-[10px] uppercase font-semibold">Approved On</span>
-                                        <span className="text-gray-500 font-mono">{formatDate(item.approvalDate)}</span>
-                                    </div>
-                                </div>
-                            </div>
+                                </>
+                            )}
                         </div>
                     ))}
 

@@ -530,54 +530,73 @@ const DocumentRenewal = () => {
                 {activeTab === 'pending' ? (
                     pendingDocuments.length > 0 ? pendingDocuments.map((doc) => (
                         <div key={doc.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <span className="text-xs font-mono font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded">{doc.sn}</span>
-                                    <h3 className="font-semibold text-gray-900 mt-1">{doc.companyName}</h3>
-                                    <p className="text-xs text-gray-500 mt-1">{doc.documentType}</p>
-                                </div>
-                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[10px] font-medium mt-1">
-                                    {doc.category}
-                                </span>
-                            </div>
+                            {editingDocId === doc.id ? (
+                                <>
+                                    <div className="space-y-2">
+                                        <span className="text-xs font-mono font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded">{doc.sn}</span>
+                                        <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Document Name</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.documentName} onChange={e => setEditFormData({...editFormData, documentName: e.target.value})} /></div>
+                                        <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Document Type</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.documentType} onChange={e => setEditFormData({...editFormData, documentType: e.target.value})} /></div>
+                                        <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Category</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.category} onChange={e => setEditFormData({...editFormData, category: e.target.value})} /></div>
+                                        <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Company / Name</label><input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs mt-0.5" value={editFormData.companyName} onChange={e => setEditFormData({...editFormData, companyName: e.target.value})} /></div>
+                                        <div><label className="text-[10px] text-gray-400 uppercase font-semibold">Renewal Date</label><input type="date" className="w-full p-1.5 border border-amber-300 rounded text-xs mt-0.5" value={editFormData.renewalDate} onChange={e => setEditFormData({...editFormData, renewalDate: e.target.value})} /></div>
+                                    </div>
+                                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                                        <button onClick={handleCancelEdit} className="px-3 py-1.5 text-gray-500 text-xs font-bold rounded-lg border border-gray-200">Cancel</button>
+                                        <button onClick={() => handleSaveEdit(doc)} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg">Save</button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <span className="text-xs font-mono font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded">{doc.sn}</span>
+                                            <h3 className="font-semibold text-gray-900 mt-1">{doc.companyName}</h3>
+                                            <p className="text-xs text-gray-500 mt-1">{doc.documentType}</p>
+                                        </div>
+                                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[10px] font-medium mt-1">
+                                            {doc.category}
+                                        </span>
+                                    </div>
 
-                            <div className="pt-2 border-t border-gray-50">
-                                <p className="text-sm font-medium text-gray-700 mb-2">{doc.documentName}</p>
-                                <div className="flex justify-between items-center text-xs text-gray-500">
-                                    <span className="flex items-center gap-1">Entry: {formatDate(doc.date)}</span>
-                                    <span className="flex items-center gap-1 font-medium text-amber-600 bg-amber-50 px-1.5 rounded">
-                                        Renewal: {doc.renewalDate || 'Pending'}
-                                    </span>
-                                </div>
-                            </div>
+                                    <div className="pt-2 border-t border-gray-50">
+                                        <p className="text-sm font-medium text-gray-700 mb-2">{doc.documentName}</p>
+                                        <div className="flex justify-between items-center text-xs text-gray-500">
+                                            <span className="flex items-center gap-1">Entry: {formatDate(doc.date)}</span>
+                                            <span className="flex items-center gap-1 font-medium text-amber-600 bg-amber-50 px-1.5 rounded">
+                                                Renewal: {doc.renewalDate || 'Pending'}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                            <div className="pt-3 flex items-center justify-between gap-3">
-                                {doc.file ? (
-                                    <button
-                                        onClick={() => handleDownload(doc.fileContent, doc.file)}
-                                        className="flex items-center gap-1.5 text-indigo-600 text-xs font-medium bg-indigo-50 px-2 py-1.5 rounded-lg"
-                                    >
-                                        <Download size={14} />
-                                        View File
-                                    </button>
-                                ) : (
-                                    <span className="text-gray-400 text-xs italic">No file</span>
-                                )}
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => handleEditRenewal(doc)}
-                                        className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-indigo-200"
-                                    >
-                                        Action
-                                    </button>
-                                    <button
-                                        onClick={() => handleStartEdit(doc)}
-                                        className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 text-xs font-bold rounded-lg flex items-center gap-1"
-                                    >
-                                        <Edit2 size={14} /> Edit
-                                    </button>
-                                </div>
-                            </div>
+                                    <div className="pt-3 flex items-center justify-between gap-3">
+                                        {doc.file ? (
+                                            <button
+                                                onClick={() => handleDownload(doc.fileContent, doc.file)}
+                                                className="flex items-center gap-1.5 text-indigo-600 text-xs font-medium bg-indigo-50 px-2 py-1.5 rounded-lg"
+                                            >
+                                                <Download size={14} />
+                                                View File
+                                            </button>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs italic">No file</span>
+                                        )}
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handleEditRenewal(doc)}
+                                                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-indigo-200"
+                                            >
+                                                Action
+                                            </button>
+                                            <button
+                                                onClick={() => handleStartEdit(doc)}
+                                                className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 text-xs font-bold rounded-lg flex items-center gap-1"
+                                            >
+                                                <Edit2 size={14} /> Edit
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )) : (
                         <div className="bg-white p-8 rounded-xl text-center text-gray-500">
