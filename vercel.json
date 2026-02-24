@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://13.127.253.101:5050/api/:path*"
+      "destination": "https://doc-sub.sagartmt.com/api/:path*"
     },
     {
       "source": "/(.*)",

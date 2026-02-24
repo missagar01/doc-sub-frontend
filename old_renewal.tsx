@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo } from 'react';
 import useAuthStore from '../../store/authStore';
 import useHeaderStore from '../../store/headerStore';
-import { RotateCcw, X, Check, Save, Search, RefreshCw, Edit2 } from 'lucide-react';
+import { RotateCcw, X, Check, Save, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
 import {
@@ -11,7 +11,6 @@ import {
     PendingRenewalItem,
     RenewalHistoryItem
 } from '../../utils/subscriptionApi';
-import { updateSubscription } from '../../utils/subscriptionApi';
 
 // Frontend display types
 interface PendingRenewalDisplay {
@@ -54,52 +53,6 @@ const SubscriptionRenewal = () => {
     const [renewalAction, setRenewalAction] = useState<'Approved' | 'Rejected' | ''>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Inline Edit State
-    const [editingSubId, setEditingSubId] = useState<string | null>(null);
-    const [editFormData, setEditFormData] = useState({
-        companyName: '',
-        subscriberName: '',
-        subscriptionName: '',
-        price: '',
-        frequency: '',
-        endDate: ''
-    });
-
-    const handleStartEdit = (sub: PendingRenewalDisplay) => {
-        setEditingSubId(sub.id);
-        setEditFormData({
-            companyName: sub.companyName,
-            subscriberName: sub.subscriberName,
-            subscriptionName: sub.subscriptionName,
-            price: sub.price,
-            frequency: sub.frequency,
-            endDate: sub.endDate
-        });
-    };
-
-    const handleCancelEdit = () => {
-        setEditingSubId(null);
-    };
-
-    const handleSaveEdit = async (sub: PendingRenewalDisplay) => {
-        try {
-            await updateSubscription(sub.id, {
-                companyName: editFormData.companyName,
-                subscriberName: editFormData.subscriberName,
-                subscriptionName: editFormData.subscriptionName,
-                price: editFormData.price,
-                frequency: editFormData.frequency,
-                endDate: editFormData.endDate
-            } as any);
-            toast.success('Subscription updated successfully');
-            setEditingSubId(null);
-            loadData();
-        } catch (err) {
-            console.error('Failed to update subscription:', err);
-            toast.error('Failed to update subscription');
-        }
-    };
-
     // Load data from backend
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -120,8 +73,7 @@ const SubscriptionRenewal = () => {
                 subscriptionName: item.subscription_name || '',
                 price: item.price || '',
                 frequency: item.frequency || '',
-                endDate: item.end_date || '',
-                reasonForRenewal: item.reason_for_renewal || '',
+                endDate: item.end_date || ''
             }))
                 .filter((item: any) => {
                     // Check if planned_1 exists and is valid based on 7-day logic
@@ -307,7 +259,6 @@ const SubscriptionRenewal = () => {
                             <thead className="sticky top-0 z-20 bg-gray-50 shadow-sm">
                                 <tr className="border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
                                     <th className="p-3 text-center w-24 bg-gray-50">Action</th>
-                                    <th className="p-3 text-center bg-gray-50">Edit</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Subscription No</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Company</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Subscriber</th>
@@ -315,7 +266,6 @@ const SubscriptionRenewal = () => {
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Frequency</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Price</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">End Date</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Reason</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 text-sm">
@@ -331,83 +281,24 @@ const SubscriptionRenewal = () => {
                                                     Action
                                                 </button>
                                             </td>
-                                            <td className="p-3 text-center">
-                                                {editingSubId === sub.id ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <button onClick={() => handleSaveEdit(sub)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Save">
-                                                            <Save size={16} />
-                                                        </button>
-                                                        <button onClick={handleCancelEdit} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors" title="Cancel">
-                                                            <X size={16} />
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleStartEdit(sub)}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 text-xs font-semibold rounded-lg transition-colors"
-                                                    >
-                                                        <Edit2 size={14} />
-                                                        Edit
-                                                    </button>
-                                                )}
-                                            </td>
                                             <td className="p-3 font-mono font-bold text-xs text-gray-700">{sub.sn}</td>
+                                            <td className="p-3 font-medium text-gray-900">{sub.companyName}</td>
+                                            <td className="p-3 text-gray-600">{sub.subscriberName}</td>
+                                            <td className="p-3 text-gray-900">{sub.subscriptionName}</td>
                                             <td className="p-3">
-                                                {editingSubId === sub.id ? (
-                                                    <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-medium text-gray-900" value={editFormData.companyName} onChange={e => setEditFormData({...editFormData, companyName: e.target.value})} />
-                                                ) : (
-                                                    <span className="font-medium text-gray-900">{sub.companyName}</span>
-                                                )}
+                                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">{sub.frequency}</span>
                                             </td>
-                                            <td className="p-3">
-                                                {editingSubId === sub.id ? (
-                                                    <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-600" value={editFormData.subscriberName} onChange={e => setEditFormData({...editFormData, subscriberName: e.target.value})} />
-                                                ) : (
-                                                    <span className="text-gray-600">{sub.subscriberName}</span>
-                                                )}
-                                            </td>
-                                            <td className="p-3">
-                                                {editingSubId === sub.id ? (
-                                                    <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900" value={editFormData.subscriptionName} onChange={e => setEditFormData({...editFormData, subscriptionName: e.target.value})} />
-                                                ) : (
-                                                    <span className="text-gray-900">{sub.subscriptionName}</span>
-                                                )}
-                                            </td>
-                                            <td className="p-3">
-                                                {editingSubId === sub.id ? (
-                                                    <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-indigo-700 bg-indigo-50 font-medium" value={editFormData.frequency} onChange={e => setEditFormData({...editFormData, frequency: e.target.value})} />
-                                                ) : (
-                                                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">{sub.frequency}</span>
-                                                )}
-                                            </td>
-                                            <td className="p-3">
-                                                {editingSubId === sub.id ? (
-                                                    <input type="text" className="w-full p-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-medium text-gray-900" value={editFormData.price} onChange={e => setEditFormData({...editFormData, price: e.target.value})} />
-                                                ) : (
-                                                    <span className="font-medium text-gray-900">{sub.price}</span>
-                                                )}
-                                            </td>
+                                            <td className="p-3 font-medium text-gray-900">{sub.price}</td>
                                             <td className="p-3 text-center">
-                                                {editingSubId === sub.id ? (
-                                                    <input type="date" className="w-full p-1.5 border border-amber-300 rounded text-xs focus:ring-1 focus:ring-amber-500 outline-none" value={editFormData.endDate} onChange={e => setEditFormData({...editFormData, endDate: e.target.value})} />
-                                                ) : (
-                                                    <span className="inline-flex items-center justify-center px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded text-xs font-medium">
-                                                        {formatDate(sub.endDate)}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className='p-3 text-center'>
-                                                {(sub as any).reasonForRenewal && (
-                                                    <span className="inline-flex items-center justify-center px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded text-xs font-medium">
-                                                        {(sub as any).reasonForRenewal}
-                                                    </span>
-                                                )}
+                                                <span className="inline-flex items-center justify-center px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded text-xs font-medium">
+                                                    {formatDate(sub.endDate)}
+                                                </span>
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={10} className="p-12 text-center">
+                                        <td colSpan={8} className="p-12 text-center">
                                             <div className="flex flex-col items-center justify-center p-8 bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100">
                                                 <div className="h-16 w-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-4">
                                                     <Check size={32} />
@@ -496,20 +387,12 @@ const SubscriptionRenewal = () => {
                                             <p className="text-xs text-gray-500 mt-0.5 font-medium">{sub.companyName}</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handleAction(sub)}
-                                            className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-indigo-200"
-                                        >
-                                            Action
-                                        </button>
-                                        <button
-                                            onClick={() => handleStartEdit(sub)}
-                                            className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 text-xs font-bold rounded-lg flex items-center gap-1"
-                                        >
-                                            <Edit2 size={14} /> Edit
-                                        </button>
-                                    </div>
+                                    <button
+                                        onClick={() => handleAction(sub)}
+                                        className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm shadow-indigo-200"
+                                    >
+                                        Action
+                                    </button>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs pt-3 border-t border-dashed border-gray-100">
@@ -590,7 +473,7 @@ const SubscriptionRenewal = () => {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
                         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <div>
-                                <h3 className="text-base font-bold text-gray-800">Subscription Renewal</h3>
+                                <h3 className="text-base font-bold text-gray-800">Process Renewal</h3>
                                 <p className="text-[10px] text-gray-500 mt-0.5">Approve or Reject Subscription Renewal</p>
                             </div>
                             <button onClick={handleCloseModal} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">

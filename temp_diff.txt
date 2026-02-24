@@ -1,0 +1,13 @@
+﻿diff --git a/src/pages/subscription/Renewal.tsx b/src/pages/subscription/Renewal.tsx
+index 7e0cfd3..795f808 100644
+--- a/src/pages/subscription/Renewal.tsx
++++ b/src/pages/subscription/Renewal.tsx
+@@ -326,7 +326,7 @@ const SubscriptionRenewal = () => {
+                                                         title="Edit Renewal"
+                                                     >
+                                                         <Edit2 size={14} />
+-                                                        Edit / Renew
++                                                        Action
+                                                     </button>
+                                                 )}
+                                             </td>
